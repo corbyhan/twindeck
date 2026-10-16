@@ -1,0 +1,56 @@
+# Builds on every push to main (artifact) and publishes a GitHub release for tags like v0.1.0.
+name: Build & Release
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up MSVC (x64)
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+
+      - name: Build
+        shell: cmd
+        run: build.bat release
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force dist/portable | Out-Null
+          Copy-Item build/TwinDeck-Setup.exe dist/
+          Copy-Item build/TwinDeck.exe dist/portable/
+          # a config file next to the exe switches TwinDeck to portable mode (settings stay in this folder)
+          '{ "SetupPrompted": true }' | Set-Content -Encoding utf8 dist/portable/TwinDeck-Config.json
+          Compress-Archive -Path dist/portable/* -DestinationPath dist/TwinDeck-portable.zip
+          Get-FileHash dist/TwinDeck-Setup.exe, dist/TwinDeck-portable.zip -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content dist/SHA256SUMS.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TwinDeck-${{ github.sha }}
+          path: |
+            dist/TwinDeck-Setup.exe
+            dist/TwinDeck-portable.zip
+            dist/SHA256SUMS.txt
+
+      - name: Publish release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/TwinDeck-Setup.exe
+            dist/TwinDeck-portable.zip
+            dist/SHA256SUMS.txt
+          generate_release_notes: true

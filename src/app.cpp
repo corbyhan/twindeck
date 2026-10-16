@@ -319,8 +319,37 @@ bool App::Init(HINSTANCE inst, const std::wstring &cmdPath, bool setupRequested)
         return true;
     }
     ShowWindow(hwnd, session.maximized ? SW_SHOWMAXIMIZED : SW_SHOWNORMAL);
+    ApplyScreenshotScene();
     UpdateWindow(hwnd);
     return true;
+}
+
+// README screenshots (tools/shots.py): TWINDECK_SHOT="select=name;filter=ㅎㄱ;view;palette=text;setup"
+// puts the window in a state that would otherwise need clicks or typing.
+void App::ApplyScreenshotScene() {
+    wchar_t buf[512];
+    DWORD n = GetEnvironmentVariableW(L"TWINDECK_SHOT", buf, (DWORD)std::size(buf));
+    if (!n || n >= std::size(buf)) return;
+    std::wstring spec(buf, n);
+    size_t start = 0;
+    while (start < spec.size()) {
+        size_t end = spec.find(L';', start);
+        std::wstring item = spec.substr(start, end == std::wstring::npos ? std::wstring::npos : end - start);
+        start = end == std::wstring::npos ? spec.size() : end + 1;
+        size_t eq = item.find(L'=');
+        std::wstring key = item.substr(0, eq), val = eq == std::wstring::npos ? L"" : item.substr(eq + 1);
+        Tab *t = CurTab();
+        if (key == L"select") shotSelect = val; // applied once the folder has loaded (OnLoaded)
+        else if (key == L"filter") BeginFilter(val);
+        else if (key == L"palette") OpenPalette(val);
+        else if (key == L"view" && t) OpenViewPopup(t, RectF((f32)r.Width() - 60 * S, (f32)r.Height() - 30 * S, 50 * S, 24 * S));
+        else if (key == L"setup") {
+            OpenSetup(false);
+            setup.info = InstallInfo();  // show a fresh install, without this machine's paths
+            setup.opts = setup.info.opts;
+            setup.pathEdit.Set(L"C:\\Users\\me\\AppData\\Local\\Programs\\TwinDeck", false);
+        }
+    }
 }
 
 void App::ApplySettings() {
@@ -781,6 +810,10 @@ void App::OnLoaded(int tabId, u64 gen, std::vector<FileEntry> &&list, ListError 
                 break;
             }
         }
+    }
+    if (!shotSelect.empty() && active && active->Cur() == t) {
+        for (int i = 0; i < (int)t->rows.size(); i++)
+            if (!t->rows[i].header && t->rows[i].e->name == shotSelect) { SelectOnly(t, i); shotSelect.clear(); break; }
     }
     t->cursor = Clamp(t->cursor, 0, std::max(0, (int)t->rows.size() - 1));
     if (active && active->Cur() == t) UpdateInspector();

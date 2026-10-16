@@ -3,3 +3,4 @@ build/
 *.pdb
 *.ilk
 __pycache__/
+dist/

@@ -404,6 +404,8 @@ struct App {
     void SaveUserData();
     void ApplySettings();
     void ApplyBackdrop();
+    void ApplyScreenshotScene();
+    std::wstring shotSelect;
     void ApplyDpi(f32 newDpi);
     void Frame();               // process input + draw
     void Invalidate() { needRedraw = true; }
