@@ -1100,7 +1100,7 @@ void App::DrawList(Panel *p, Tab *t, RectF rc) {
     int first = std::max(0, (int)(t->scroll / rh));
     int last = std::min(n - 1, (int)((t->scroll + rc.h) / rh) + 1);
     int hoverRow = -1;
-    if (hovList) {
+    if (hovList && in.mx < rc.Right() - sbW) { // the scrollbar strip is not part of any row
         int hr = (int)((in.my - rc.y + t->scroll) / rh);
         if (hr >= 0 && hr < n) hoverRow = hr;
     }
@@ -1278,7 +1278,7 @@ void App::DrawGrid(Panel *p, Tab *t, RectF rc) {
     f32 rad = settings.roundCorners ? 5 * S : 0;
     int first = (int)(std::partition_point(g.items.begin(), g.items.end(),
                                            [&](const RectF &it) { return it.Bottom() <= t->scroll; }) - g.items.begin());
-    int hoverRow = hovList ? ItemAtPoint(t, in.mx - rc.x, in.my - rc.y + t->scroll) : -1;
+    int hoverRow = hovList && in.mx < rc.Right() - sbW ? ItemAtPoint(t, in.mx - rc.x, in.my - rc.y + t->scroll) : -1;
     std::wstring filterShown = t->recursive ? L"" : t->filter;
 
     for (int i = first; i < n && i < (int)g.items.size(); i++) {
