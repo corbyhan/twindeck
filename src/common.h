@@ -37,7 +37,7 @@ typedef float    f32;
 typedef double   f64;
 
 #define APP_NAME      L"TwinDeck"
-#define APP_VERSION   L"0.1.1"
+#define APP_VERSION   L"0.1.2"
 #define APP_DIR_NAME  L"TwinDeck"
 
 template <typename T>
