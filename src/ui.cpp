@@ -175,9 +175,9 @@ void App::Draw() {
     DrawTitleBar(rest.CutTop(titleH));
     if (setup.active) {
         DrawSetup(rest);
-        DrawToasts();
         mouseBlocked = false;
         DrawPopup();
+        DrawToasts(); // above popups: a toast often reports what a popup just did
         DrawTooltip();
         if (tooltip.empty()) lastHoverId = 0;
         r.EndFrame(settings.vsync);
@@ -253,11 +253,11 @@ void App::Draw() {
     }
     if (root) DrawLayout(root.get(), rest);
 
-    DrawToasts();
     cloud.Flush();
     thumbs.Flush();
     mouseBlocked = false;
     DrawPopup();
+    DrawToasts(); // above popups: a toast often reports what a popup just did
     DrawTooltip();
     if (tooltip.empty()) lastHoverId = 0;
     r.EndFrame(settings.vsync);
@@ -1596,8 +1596,9 @@ void App::DrawToasts() {
         f32 h = r.Metrics(FONT_UI).lineH + 16 * S;
         RectF tr(((f32)r.Width() - w) / 2, y - h, w, h);
         r.Shadow(tr, 8 * S, 10 * S, 0.25f * alpha);
-        r.FillRect(tr, theme.popupBg.WithAlpha(alpha), 8 * S);
-        r.StrokeRect(tr, theme.popupBorder.WithAlpha(alpha), 1 * S, 8 * S);
+        bool overPopup = popup.kind != POPUP_NONE; // same colors as the popup would hide it
+        r.FillRect(tr, (overPopup ? theme.selection : theme.popupBg).WithAlpha(alpha), 8 * S);
+        r.StrokeRect(tr, (overPopup ? theme.accent : theme.popupBorder).WithAlpha(alpha), 1 * S, 8 * S);
         TextOpts o; o.align = ALIGN_CENTER; o.opacity = alpha;
         r.Text(FONT_UI, t.text, tr, theme.text, o);
         y -= h + 8 * S;
