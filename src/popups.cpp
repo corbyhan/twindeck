@@ -607,6 +607,7 @@ void App::DrawOptions(RectF pr) {
         choice(TL(L"Typing in the file list", L"파일 목록에서 입력 시"), s.characterKeyAction, {T(S_CharSelect), T(S_CharFilter)});
         toggle(TL(L"Folders first", L"폴더를 먼저 정렬"), s.foldersFirst);
         toggle(TL(L"Reverse scroll", L"스크롤 방향 반대로"), s.reverseScroll);
+        toggle(TL(L"Search subfolders with Everything (when it runs)", L"하위 폴더 검색에 Everything 사용 (실행 중일 때)"), s.useEverything);
         info(TL(L"Hangul input", L"한글 입력"), TL(L"IME composition + initial consonant search", L"IME 조합 표시 + 초성 검색 지원"));
         break;
     case 3: {

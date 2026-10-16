@@ -19,6 +19,7 @@ u64 UnixNow() {
     X(L"InspectorFontSize", inspectorFontSize, Float) \
     X(L"Spacing", spacing, Int) \
     X(L"ShowHiddenFiles", showHiddenFiles, Bool) \
+    X(L"UseEverything", useEverything, Bool) \
     X(L"ShowSystemFiles", showSystemFiles, Bool) \
     X(L"ShowFileExtension", showFileExtension, Bool) \
     X(L"ShowCheckboxes", showCheckboxes, Bool) \

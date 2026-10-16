@@ -221,11 +221,13 @@ static bool ShouldDescend(u32 attrs, u32 tag) {
 
 u64 EnumerateRecursive(const std::wstring &root, const std::atomic<bool> &cancel,
                        const std::function<bool(const FileEntry &)> &accept,
-                       const std::function<void(std::vector<FileEntry> &&)> &onChunk, u64 maxResults) {
+                       const std::function<void(std::vector<FileEntry> &&)> &onChunk, u64 maxResults,
+                       std::atomic<u64> *progress) {
     std::vector<std::wstring> stack;
     stack.push_back(L"");
     std::vector<FileEntry> chunk, list;
     u64 scanned = 0, results = 0;
+    u64 lastFlush = GetTickCount64();
     while (!stack.empty() && !cancel.load()) {
         std::wstring rel = stack.back();
         stack.pop_back();
@@ -240,10 +242,18 @@ u64 EnumerateRecursive(const std::wstring &root, const std::atomic<bool> &cancel
                 results++;
             }
         }
-        if (chunk.size() >= 2000) onChunk(std::move(chunk)), chunk.clear();
+        if (progress) progress->store(scanned);
+        // a few matches in a big tree must show up right away, not when 2000 have piled up
+        u64 now = GetTickCount64();
+        if (chunk.size() >= 2000 || (!chunk.empty() && now - lastFlush >= 150)) {
+            onChunk(std::move(chunk));
+            chunk.clear();
+            lastFlush = now;
+        }
         if (results >= maxResults) break;
     }
     if (!chunk.empty()) onChunk(std::move(chunk));
+    if (progress) progress->store(scanned);
     return scanned;
 }
 

@@ -1,4 +1,5 @@
 #include "app.h"
+#include "everything.h"
 #include "jobs.h"
 #include <dwmapi.h>
 #include <shlobj.h>
@@ -844,10 +845,12 @@ void App::OnDirChanged(const std::wstring &dir) {
 }
 
 void App::StartRecursiveSearch(Tab *t) {
+    t->searchDueTick = 0;
     if (t->search) t->search->cancel = true;
     DropRows(t);
     t->searchResults.clear();
     if (!t->recursive || t->kind != VIEW_FOLDER) { t->search.reset(); return; }
+    if (Trim(t->filter).empty()) { t->search.reset(); t->rowsDirty = true; return; } // nothing to look for yet
     auto s = std::make_shared<RecursiveSearch>();
     s->pattern = t->filter;
     t->search = s;
@@ -855,7 +858,27 @@ void App::StartRecursiveSearch(Tab *t) {
     std::wstring root = t->path;
     std::wstring pattern = t->filter;
     bool showHidden = settings.showHiddenFiles;
-    JobSubmit([s, id, root, pattern, showHidden]() mutable {
+    bool useEverything = settings.useEverything;
+    JobSubmit([s, id, root, pattern, showHidden, useEverything]() mutable {
+        // Everything answers from its index at once; otherwise walk the folders
+        std::vector<FileEntry> found;
+        if (useEverything && EverythingSearch(root, pattern, showHidden, 200000, found)) {
+            s->everything = true;
+            s->scanned = found.size();
+            auto sh = std::make_shared<std::vector<FileEntry>>(std::move(found));
+            MainPost([s, id, sh] {
+                if (s->cancel || !g_app) return;
+                Tab *t = g_app->FindTab(id);
+                if (!t || t->search != s) return;
+                g_app->DropRows(t);
+                t->searchResults = std::move(*sh);
+                t->rowsDirty = true;
+                g_app->Invalidate();
+            });
+            s->done = true;
+            MainPost([] { if (g_app) g_app->Invalidate(); });
+            return;
+        }
         EnumerateRecursive(
             root, s->cancel,
             [&](const FileEntry &e) {
@@ -874,7 +897,7 @@ void App::StartRecursiveSearch(Tab *t) {
                     g_app->Invalidate();
                 });
             },
-            200000);
+            200000, &s->scanned);
         s->done = true;
         MainPost([] { if (g_app) g_app->Invalidate(); });
     });

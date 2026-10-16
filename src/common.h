@@ -86,6 +86,7 @@ std::wstring PathFileName(const std::wstring &p);
 std::wstring PathExtension(const std::wstring &p); // lowercase without dot
 bool         PathIsRootDrive(const std::wstring &p);
 int          NaturalCompare(const std::wstring &a, const std::wstring &b);
+std::wstring Trim(const std::wstring &s); // spaces at both ends
 // Hangul-aware fuzzy match: also matches initial consonants (초성 검색), e.g. "ㅍㄹ" matches "파일"
 bool         FuzzyMatch(const std::wstring &text, const std::wstring &pattern, int *score = nullptr);
 std::wstring HangulChoseong(const std::wstring &s);

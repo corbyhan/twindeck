@@ -43,7 +43,8 @@ ListError ListDirectory(const std::wstring &dir, std::vector<FileEntry> &out);
 // `onChunk` is called with batches of entries (relDir filled). Returns entries scanned.
 u64 EnumerateRecursive(const std::wstring &root, const std::atomic<bool> &cancel,
                        const std::function<bool(const FileEntry &)> &accept,
-                       const std::function<void(std::vector<FileEntry> &&)> &onChunk, u64 maxResults);
+                       const std::function<void(std::vector<FileEntry> &&)> &onChunk, u64 maxResults,
+                       std::atomic<u64> *scanned = nullptr); // matches arrive in chunks, at least every 150 ms
 
 void ListDrives(std::vector<FileEntry> &out, bool queryVolumeInfo);
 bool PathExists(const std::wstring &p);

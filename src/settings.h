@@ -20,6 +20,7 @@ struct Settings {
     f32 inspectorFontSize = 10.0f;
     int spacing = 4;             // row padding (0..12)
     bool showHiddenFiles = false;
+    bool useEverything = true;       // subfolder search through Everything when it is running
     bool showSystemFiles = false;
     bool showFileExtension = true;
     bool showCheckboxes = false;

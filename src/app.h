@@ -116,6 +116,8 @@ struct GroupInfo {
 struct RecursiveSearch {
     std::atomic<bool> cancel{false};
     std::atomic<bool> done{false};
+    std::atomic<u64> scanned{0};   // entries looked at so far (progress)
+    std::atomic<bool> everything{false}; // answered by Everything's index
     std::wstring pattern;
 };
 
@@ -161,6 +163,7 @@ struct Tab {
     std::wstring filter;
     bool recursive = false;
     std::shared_ptr<RecursiveSearch> search;
+    u64 searchDueTick = 0;            // restart the subfolder search at this tick (typing in the filter)
     std::vector<FileEntry> searchResults;
 
     std::vector<Row> rows;

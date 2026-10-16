@@ -15,10 +15,11 @@ if not exist build mkdir build
 
 set CFLAGS=/nologo /std:c++17 /EHsc /W3 /utf-8 /MP /DUNICODE /D_UNICODE /DNOMINMAX /D_CRT_SECURE_NO_WARNINGS /Fobuild\ /Fdbuild\
 if "%CONFIG%"=="debug" (
-    set CFLAGS=%CFLAGS% /Zi /Od /MTd /D_DEBUG
+    set CRT=/Zi /Od /MTd /D_DEBUG
 ) else (
-    set CFLAGS=%CFLAGS% /Zi /O2 /MT /DNDEBUG
+    set CRT=/Zi /O2 /MT /DNDEBUG
 )
+set CFLAGS=%CFLAGS% %CRT%
 
 set LIBS=user32.lib gdi32.lib shell32.lib ole32.lib oleaut32.lib advapi32.lib shlwapi.lib comctl32.lib ^
  d3d11.lib dxgi.lib d2d1.lib dwrite.lib windowscodecs.lib imm32.lib dwmapi.lib uuid.lib propsys.lib ^
@@ -34,7 +35,12 @@ if errorlevel 1 exit /b 1
 
 rc /nologo /fo build\app.res res\app.rc || exit /b 1
 
-cl %CFLAGS% src\*.cpp build\app.res /Febuild\TwinDeck.exe /link /SUBSYSTEM:WINDOWS /DEBUG /MAP:build\TwinDeck.map /OPT:REF /OPT:ICF %LIBS%
+rem Everything SDK client (C, MIT): compiled in instead of shipping Everything64.dll; see third_party\everything
+cl /nologo /c /W1 %CRT% /DUNICODE /D_UNICODE /DEVERYTHINGUSERAPI= /Fobuild\everything_sdk.obj /Fdbuild\ ^
+ third_party\everything\src\Everything.c
+if errorlevel 1 exit /b 1
+
+cl %CFLAGS% src\*.cpp build\everything_sdk.obj build\app.res /Febuild\TwinDeck.exe /link /SUBSYSTEM:WINDOWS /DEBUG /MAP:build\TwinDeck.map /OPT:REF /OPT:ICF %LIBS%
 if errorlevel 1 exit /b 1
 rem the same program doubles as the installer: a file name containing "Setup" opens the setup screen
 copy /Y build\TwinDeck.exe build\TwinDeck-Setup.exe >nul

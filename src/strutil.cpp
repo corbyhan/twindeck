@@ -151,8 +151,41 @@ static bool CharEq(wchar_t t, wchar_t p) {
 }
 
 // Subsequence fuzzy match with scoring. Contiguous / word-start matches score higher.
+std::wstring Trim(const std::wstring &s) {
+    size_t a = s.find_first_not_of(L' '), b = s.find_last_not_of(L' ');
+    return a == std::wstring::npos ? L"" : s.substr(a, b - a + 1);
+}
+
+// '*' and '?' against the whole text, ignoring case (*.md, report_??.txt)
+static bool WildcardMatch(const wchar_t *s, const wchar_t *p) {
+    const wchar_t *star = nullptr, *resume = nullptr;
+    while (*s) {
+        if (*p == L'?' || (*p != L'*' && towlower(*p) == towlower(*s))) { s++; p++; }
+        else if (*p == L'*') { star = p++; resume = s; }
+        else if (star) { p = star + 1; s = ++resume; }
+        else return false;
+    }
+    while (*p == L'*') p++;
+    return *p == 0;
+}
+
 bool FuzzyMatch(const std::wstring &textIn, const std::wstring &patIn, int *score) {
     if (patIn.empty()) { if (score) *score = 0; return true; }
+    if (patIn.find(L';') != std::wstring::npos) { // alternatives: *.md;*.txt
+        size_t start = 0;
+        while (start <= patIn.size()) {
+            size_t end = patIn.find(L';', start);
+            std::wstring part = Trim(patIn.substr(start, end == std::wstring::npos ? std::wstring::npos : end - start));
+            if (!part.empty() && FuzzyMatch(textIn, part, score)) return true;
+            if (end == std::wstring::npos) break;
+            start = end + 1;
+        }
+        return false;
+    }
+    if (patIn.find_first_of(L"*?") != std::wstring::npos) {
+        if (score) *score = 0;
+        return WildcardMatch(textIn.c_str(), Trim(patIn).c_str());
+    }
     std::wstring text = ToLower(textIn), pat = ToLower(patIn);
     // fast path: substring
     size_t pos = text.find(pat);

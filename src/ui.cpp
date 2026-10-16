@@ -34,6 +34,14 @@ void App::Frame() {
         });
         if (!insp.path.empty() && PathParent(insp.path) == dir) { std::wstring keep = insp.path; ClearInspector(); UpdateInspector(); }
     }
+    // subfolder searches waiting for typing to pause
+    ForEachPanel([&](Panel *p) {
+        for (auto &t : p->tabs) {
+            if (!t->searchDueTick) continue;
+            if (now >= t->searchDueTick) StartRecursiveSearch(t.get());
+            else Invalidate(); // come back when it is due
+        }
+    });
     if (sessionDirty && now - lastSessionSave > 5000) SaveSession();
 
     Draw();
@@ -1066,6 +1074,13 @@ void App::ListScroll(Tab *t, RectF rc, f32 contentH, f32 step) {
     t->scroll = Clamp(t->scroll, 0.f, maxScroll);
 }
 
+// "Searching subfolders… (12,345 checked)"
+static std::wstring SearchProgressText(const Tab *t) {
+    std::wstring n = std::to_wstring(t->search->scanned.load());
+    for (int i = (int)n.size() - 3; i > 0; i -= 3) n.insert(i, L",");
+    return std::wstring(T(S_SearchSubfolders)) + Format(TL(L" (%s checked)", L" (%s개 확인)"), n.c_str());
+}
+
 // empty folder / loading / error message; returns true when there is nothing to list
 static bool DrawEmptyState(App *a, Tab *t, RectF rc) {
     if (!t->rows.empty()) return false;
@@ -1073,7 +1088,9 @@ static bool DrawEmptyState(App *a, Tab *t, RectF rc) {
     if (t->loading) { if (GetTickCount64() - t->loadStartTick > 150) msg = T(S_Loading); else a->Invalidate(); }
     else if (t->error == LIST_ACCESS_DENIED) msg = T(S_AccessDenied);
     else if (t->error == LIST_NOT_FOUND) msg = T(S_PathNotFound);
-    else if (t->recursive && t->search && !t->search->done) msg = T(S_SearchSubfolders);
+    else if (t->recursive && Trim(t->filter).empty())
+        msg = TL(L"Type a name to search subfolders (e.g. report, *.md)", L"하위 폴더에서 찾을 이름을 입력하세요 (예: 보고서, *.md)");
+    else if (t->recursive && t->search && !t->search->done) msg = SearchProgressText(t);
     else if (!t->filter.empty()) msg = T(S_NoMatch);
     else msg = T(S_Empty);
     TextOpts o; o.align = ALIGN_CENTER;
@@ -1398,7 +1415,8 @@ void App::DrawStatus(Panel *p, Tab *t, RectF rc) {
         left += L"   ·   " + Format(T(S_ItemsSelected), (int)t->selected.size());
         if (bytes || anyFile) left += L"  (" + FormatSize(bytes) + L")";
     }
-    if (t->recursive && t->search && !t->search->done) left += L"   ·   " + std::wstring(T(S_SearchSubfolders));
+    if (t->recursive && t->search && !t->search->done) left += L"   ·   " + SearchProgressText(t);
+    else if (t->recursive && t->search && t->search->everything) left += L"   ·   Everything";
     if (t->loading && GetTickCount64() - t->loadStartTick > 150) left += L"   ·   " + std::wstring(T(S_Loading));
     if (focus == FOCUS_FILTER && p == active && ime.composing) left += L"   ·   " + std::wstring(T(S_Composition)) + L": " + ime.comp;
     // view mode button (opens the size slider)

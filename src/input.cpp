@@ -267,7 +267,14 @@ void App::ApplyFilter() {
     if (f == t->filter && !t->rowsDirty) return;
     t->filter = f;
     t->rowsDirty = true;
-    if (t->recursive) StartRecursiveSearch(t);
+    if (t->recursive) { // a full rescan per keystroke is wasted: start once typing pauses (App::Frame)
+        if (t->search) t->search->cancel = true;
+        DropRows(t);
+        t->searchResults.clear();
+        if (!Trim(f).empty()) t->search = std::make_shared<RecursiveSearch>(); // shows "searching" until then
+        else t->search.reset();
+        t->searchDueTick = GetTickCount64() + 250;
+    }
     RebuildRows(t);
     t->scrollTarget = t->scroll = 0;
     bool any = false;
