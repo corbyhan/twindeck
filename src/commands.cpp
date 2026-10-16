@@ -401,6 +401,112 @@ void App::BuildHotkeys() {
     }
 }
 
+// ------------------------------------------------------------------ editing (options > Shortcuts)
+// A command's keys are its defaults until the user changes them; then user.hotkeys holds the full list for that
+// command (an entry with empty keys = no key at all).
+static std::wstring CanonicalKeys(const std::wstring &s) {
+    Hotkey h;
+    return ParseHotkey(s, h) ? HotkeyToString(h) : L"";
+}
+
+std::vector<std::wstring> App::CommandHotkeys(const std::wstring &cmd) const {
+    std::vector<std::wstring> v;
+    for (auto &h : hotkeys) if (h.command == cmd) v.push_back(HotkeyToString(h));
+    return v;
+}
+
+std::vector<std::wstring> App::DefaultHotkeys(const std::wstring &cmd) const {
+    std::vector<std::wstring> v;
+    for (auto &d : kDefaultHotkeys) if (cmd == d[1]) v.push_back(CanonicalKeys(d[0]));
+    return v;
+}
+
+bool App::HotkeysChanged(const std::wstring &cmd) const {
+    for (auto &u : user.hotkeys) if (u.command == cmd) return true;
+    return false;
+}
+
+void App::SetCommandHotkeys(const std::wstring &cmd, const std::vector<std::wstring> &keys) {
+    auto &uh = user.hotkeys;
+    uh.erase(std::remove_if(uh.begin(), uh.end(), [&](const HotkeyBinding &b) { return b.command == cmd; }), uh.end());
+    if (keys != DefaultHotkeys(cmd)) {
+        if (keys.empty()) uh.push_back({L"", cmd});
+        for (auto &k : keys) uh.push_back({k, cmd});
+    }
+    SaveUserData();
+    BuildHotkeys();
+    Invalidate();
+}
+
+void App::ResetAllHotkeys() {
+    user.hotkeys.clear();
+    SaveUserData();
+    BuildHotkeys();
+    Invalidate();
+}
+
+// the key that was just pressed as a hotkey string ("" when it cannot be one)
+std::wstring App::KeyEventHotkey(const KeyEvent &k) const {
+    Hotkey h;
+    h.vk = k.vk;
+    h.ctrl = k.ctrl;
+    h.shift = k.shift;
+    h.alt = k.alt;
+    std::wstring s = HotkeyToString(h);
+    return CanonicalKeys(s) == s ? s : L""; // keys without a name (e.g. media keys) do not round-trip
+}
+
+// Gives cmd the key; another command that had it loses it. Returns a message for the user ("" = done quietly).
+std::wstring App::AssignHotkey(const std::wstring &cmd, const std::wstring &keys) {
+    Hotkey h;
+    if (!ParseHotkey(keys, h)) return TL(L"This key cannot be used.", L"이 키는 사용할 수 없습니다.");
+    if (!h.ctrl && !h.alt && ((h.vk >= 'A' && h.vk <= 'Z') || (h.vk >= '0' && h.vk <= '9')))
+        return TL(L"Use letters and digits with Ctrl or Alt: alone they type in the file list.",
+                  L"글자·숫자 키는 Ctrl이나 Alt와 함께 지정하세요. 단독으로는 파일 목록 입력에 쓰입니다.");
+    for (auto &o : hotkeys) {
+        if (o.vk != h.vk || o.ctrl != h.ctrl || o.shift != h.shift || o.alt != h.alt) continue;
+        if (o.command == cmd) return L"";
+        if (o.command.rfind(L"SelectTab", 0) == 0) return TL(L"Ctrl+1…9 switch tabs.", L"Ctrl+1…9는 탭 전환에 쓰입니다.");
+    }
+    std::wstring msg = TakeHotkey(cmd, keys);
+    std::vector<std::wstring> mine = CommandHotkeys(cmd);
+    mine.push_back(keys);
+    SetCommandHotkeys(cmd, mine);
+    return msg;
+}
+
+// Restores cmd's default keys; commands that had taken one of them lose it.
+std::wstring App::ResetCommandHotkeys(const std::wstring &cmd) {
+    std::wstring msg;
+    for (auto &k : DefaultHotkeys(cmd)) {
+        std::wstring m = TakeHotkey(cmd, k);
+        if (!m.empty()) msg = m;
+    }
+    SetCommandHotkeys(cmd, DefaultHotkeys(cmd));
+    return msg;
+}
+
+// Removes keys from whichever other command has them. Returns a message saying so ("" = nobody had them).
+std::wstring App::TakeHotkey(const std::wstring &cmd, const std::wstring &keys) {
+    Hotkey h;
+    if (!ParseHotkey(keys, h)) return L"";
+    std::wstring msg;
+    for (auto &o : hotkeys) {
+        if (o.vk != h.vk || o.ctrl != h.ctrl || o.shift != h.shift || o.alt != h.alt) continue;
+        if (o.command == cmd || o.command.rfind(L"SelectTab", 0) == 0) continue;
+        std::wstring other = o.command;
+        std::vector<std::wstring> rest = CommandHotkeys(other);
+        rest.erase(std::remove(rest.begin(), rest.end(), keys), rest.end());
+        SetCommandHotkeys(other, rest);
+        const Command *oc = FindCommand(other);
+        const wchar_t *name = oc ? TL(oc->nameEn, oc->nameKo) : other.c_str();
+        msg = I18nGetLanguage() == LANG_KO ? Format(L"\"%s\"에서 %s 제거됨", name, keys.c_str())
+                                           : Format(L"Removed %s from \"%s\".", keys.c_str(), name);
+        break; // `hotkeys` was rebuilt: stop iterating it
+    }
+    return msg;
+}
+
 std::wstring App::HotkeyText(const std::wstring &cmdId) const {
     for (auto &h : hotkeys) if (h.command == cmdId) return HotkeyToString(h);
     return L"";

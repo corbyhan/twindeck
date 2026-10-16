@@ -210,8 +210,30 @@ void App::PopupKey(const KeyEvent &k) {
             }
             return;
         }
-        if (k.vk == VK_ESCAPE) ClosePopup();
-        else if (k.vk == VK_TAB) popup.optionsTab = (popup.optionsTab + (k.shift ? 3 : 1)) % 4;
+        if (!popup.captureCmd.empty()) { // Shortcuts: recording a key for a command
+            if (k.vk == VK_ESCAPE) { popup.captureCmd.clear(); return; }
+            std::wstring keys = KeyEventHotkey(k);
+            if (keys.empty()) return; // a key without a name: keep waiting
+            std::wstring msg = AssignHotkey(popup.captureCmd, keys);
+            popup.captureCmd.clear();
+            if (!msg.empty()) Toast(msg);
+            return;
+        }
+        if (k.vk == VK_TAB) {
+            popup.optionsTab = (popup.optionsTab + (k.shift ? kOptionsTabs - 1 : 1)) % kOptionsTabs;
+            popup.scroll = 0;
+            return;
+        }
+        if (popup.optionsTab == kShortcutsTab && k.vk != VK_ESCAPE) { // the search box has the keyboard
+            bool changed = false;
+            popup.edit.OnKey(k, hwnd, &changed);
+            if (changed) popup.scroll = 0;
+            return;
+        }
+        if (k.vk == VK_ESCAPE) {
+            if (popup.optionsTab == kShortcutsTab && !popup.edit.text.empty()) { popup.edit.Set(L"", false); popup.scroll = 0; }
+            else ClosePopup();
+        }
         return;
     case POPUP_PALETTE:
     case POPUP_GOTO: {
@@ -412,18 +434,24 @@ void App::DrawOptions(RectF pr) {
     }
     RectF body = RectF(pr.x, head.Bottom(), pr.w, pr.h - head.h);
     RectF tabs = body.CutLeft(170 * S);
-    StrId tabNames[4] = {S_SetGeneral, S_SetAppearance, S_SetBehavior, S_SetSystem};
-    for (int i = 0; i < 4; i++) {
+    const wchar_t *tabNames[kOptionsTabs] = {T(S_SetGeneral), T(S_SetAppearance), T(S_SetBehavior), T(S_SetSystem),
+                                             TL(L"Shortcuts", L"단축키")};
+    for (int i = 0; i < kOptionsTabs; i++) {
         RectF tr(tabs.x + 10 * S, tabs.y + 4 * S + i * (lh + 16 * S), tabs.w - 20 * S, lh + 12 * S);
         bool act = popup.optionsTab == i;
         if (act) r.FillRect(tr, theme.selection, 6 * S);
         else if (Hover(tr)) r.FillRect(tr, theme.hover, 6 * S);
-        r.Text(act ? FONT_UI_BOLD : FONT_UI, T(tabNames[i]), RectF(tr.x + 12 * S, tr.y, tr.w - 16 * S, tr.h), theme.text);
-        if (Clicked(tr)) popup.optionsTab = i;
+        r.Text(act ? FONT_UI_BOLD : FONT_UI, tabNames[i], RectF(tr.x + 12 * S, tr.y, tr.w - 16 * S, tr.h), theme.text);
+        if (Clicked(tr) && popup.optionsTab != i) {
+            popup.optionsTab = i;
+            popup.scroll = 0;
+            popup.captureCmd.clear();
+        }
     }
     r.Line(tabs.Right(), body.y + 4 * S, tabs.Right(), body.Bottom() - 10 * S, theme.border);
     RectF content = body.Shrink(16 * S);
     content.x += 4 * S;
+    if (popup.optionsTab == kShortcutsTab) { DrawShortcutOptions(content); return; }
     r.PushClip(content);
     f32 rowH = std::floor(lh + 18 * S);
     f32 y = content.y - popup.scroll;
@@ -611,6 +639,134 @@ void App::DrawOptions(RectF pr) {
             lastInspFont = settings.inspectorFontSize;
         }
     }
+}
+
+// ------------------------------------------------------------------ options > Shortcuts
+// Search box, then one row per command: its keys as chips (× removes one), + records a new key, ↺ restores defaults.
+void App::DrawShortcutOptions(RectF c) {
+    f32 lh = r.Metrics(FONT_UI).lineH;
+    f32 rowH = std::floor(lh + 18 * S);
+    bool capturing = !popup.captureCmd.empty();
+
+    // ---- search box and "reset all"
+    RectF top = c.CutTop(rowH);
+    std::wstring resetLabel = GetTickCount64() - popup.resetArmedTick < 3000 ? TL(L"Click again to reset", L"한 번 더 누르면 초기화")
+                                                                              : TL(L"Reset all", L"모두 기본값으로");
+    f32 rbW = r.Measure(FONT_UI, resetLabel) + 28 * S;
+    RectF rb(top.Right() - rbW, top.y + 4 * S, rbW, top.h - 8 * S);
+    RectF sb(top.x, top.y + 4 * S, std::max(120 * S, rb.x - top.x - 12 * S), top.h - 8 * S);
+    r.FillRect(sb, theme.inputBg, 5 * S);
+    r.StrokeRect(sb, capturing ? theme.border : theme.accent, 1 * S, 5 * S);
+    TextOpts io; io.align = ALIGN_CENTER; io.ellipsis = false;
+    r.Text(FONT_ICON_SMALL, GLYPH_SEARCH, RectF(sb.x, sb.y, sb.h, sb.h), theme.textFaint, io);
+    DrawTextEdit(popup.edit, RectF(sb.x + sb.h, sb.y, sb.w - sb.h - 8 * S, sb.h), FONT_UI, theme.text,
+                 TL(L"Search commands or keys", L"명령 또는 키 검색"), !capturing);
+    r.FillRect(rb, Hover(rb) ? theme.hover : theme.inputBg, 5 * S);
+    r.StrokeRect(rb, theme.border, 1 * S, 5 * S);
+    TextOpts co; co.align = ALIGN_CENTER;
+    r.Text(FONT_UI, resetLabel, rb, theme.text, co);
+    if (Clicked(rb)) {
+        in.pressed[0] = false;
+        if (GetTickCount64() - popup.resetArmedTick < 3000) {
+            ResetAllHotkeys();
+            popup.resetArmedTick = 0;
+            Toast(TL(L"All shortcuts are back to their defaults.", L"모든 단축키를 기본값으로 되돌렸습니다."));
+        } else {
+            popup.resetArmedTick = GetTickCount64();
+        }
+    }
+    if (popup.resetArmedTick && GetTickCount64() - popup.resetArmedTick < 3100) Invalidate(); // label times out
+    RectF hint = c.CutTop(lh + 8 * S);
+    r.Text(FONT_SMALL, capturing ? TL(L"Press the new key combination. Esc cancels.", L"새 키 조합을 누르세요. Esc를 누르면 취소합니다.")
+                                 : TL(L"+ adds a key, × removes one, the arrow at the right restores the defaults.",
+                                      L"+로 키 추가, ×로 삭제, 오른쪽 화살표로 기본값 복원"),
+           hint, capturing ? theme.accent : theme.textFaint);
+
+    // ---- commands matching the search
+    std::wstring q = popup.edit.text;
+    if (ime.composing) q += ime.comp;
+    std::vector<const Command *> list;
+    for (auto &cmd : commands) {
+        if (!q.empty()) {
+            std::wstring keys;
+            for (auto &k : CommandHotkeys(cmd.id)) keys += k + L" ";
+            bool hit = ContainsNoCase(cmd.nameKo, q) || ContainsNoCase(cmd.nameEn, q) || ContainsNoCase(cmd.id, q) ||
+                       ContainsNoCase(keys, q) || ContainsNoCase(HangulChoseong(cmd.nameKo), q);
+            if (!hit) continue;
+        }
+        list.push_back(&cmd);
+    }
+
+    r.PushClip(c);
+    f32 y = c.y - popup.scroll;
+    int rowIndex = 0;
+    TextOpts ko; ko.align = ALIGN_CENTER; ko.ellipsis = false;
+    for (const Command *cmd : list) {
+        RectF rr(c.x, y, c.w, rowH);
+        y += rowH;
+        if (rr.Bottom() < c.y || rr.y > c.Bottom()) { rowIndex++; continue; }
+        if (rowIndex++ & 1) r.FillRect(rr, theme.rowAlt, 4 * S);
+        bool rowCapturing = popup.captureCmd == cmd->id;
+        if (rowCapturing) r.FillRect(rr, theme.selection, 4 * S);
+        r.Text(FONT_UI, TL(cmd->nameEn, cmd->nameKo), RectF(rr.x + 10 * S, rr.y, rr.w * 0.42f - 10 * S, rr.h), theme.text);
+        auto canClick = [&](const RectF &b) { return Clicked(b) && Hover(c); };
+
+        f32 chipH = rowH - 12 * S;
+        f32 x = rr.x + rr.w * 0.42f;
+        f32 right = rr.Right() - 10 * S - chipH; // the reset button sits at the far right
+        for (const std::wstring &k : CommandHotkeys(cmd->id)) {
+            f32 cw = r.Measure(FONT_SMALL, k) + 16 * S + chipH * 0.7f;
+            if (x + cw > right) break;
+            RectF chip(x, rr.y + 6 * S, cw, chipH);
+            bool hov = Hover(chip) && Hover(c) && !capturing;
+            r.FillRect(chip, hov ? theme.hover : theme.inputBg, 4 * S);
+            r.StrokeRect(chip, theme.border, 1 * S, 4 * S);
+            r.Text(FONT_SMALL, k, RectF(chip.x + 8 * S, chip.y, cw - chipH * 0.7f - 8 * S, chip.h), theme.text);
+            RectF xb(chip.Right() - chipH * 0.8f, chip.y, chipH * 0.8f, chip.h);
+            r.Text(FONT_ICON_SMALL, GLYPH_CLOSE, xb, hov ? theme.text : theme.textFaint, ko);
+            if (hov) SetTooltip(HashStr(cmd->id + k, 41), TL(L"Remove this key", L"이 키 삭제"));
+            if (!capturing && canClick(chip)) {
+                std::vector<std::wstring> rest = CommandHotkeys(cmd->id);
+                rest.erase(std::remove(rest.begin(), rest.end(), k), rest.end());
+                SetCommandHotkeys(cmd->id, rest);
+                in.pressed[0] = false;
+                break; // the list changed under us
+            }
+            x += cw + 6 * S;
+        }
+        if (rowCapturing) {
+            std::wstring wait = TL(L"Press keys…", L"키를 누르세요…");
+            RectF chip(x, rr.y + 6 * S, r.Measure(FONT_SMALL, wait) + 20 * S, chipH);
+            r.FillRect(chip, theme.inputBg, 4 * S);
+            r.StrokeRect(chip, theme.accent, std::max(1.5f, 1.5f * S), 4 * S);
+            r.Text(FONT_SMALL, wait, chip, theme.accent, ko);
+            if (canClick(rr)) in.pressed[0] = false; // clicks while waiting do nothing; Esc cancels
+        } else if (x + chipH <= right + chipH) {
+            RectF add(x, rr.y + 6 * S, chipH, chipH);
+            bool hov = Hover(add) && Hover(c) && !capturing;
+            r.FillRect(add, hov ? theme.hover : Color(0, 0, 0, 0), 4 * S);
+            r.Text(FONT_ICON_SMALL, GLYPH_ADD, add, hov ? theme.accent : theme.textDim, ko);
+            if (hov) SetTooltip(HashStr(cmd->id, 42), TL(L"Add a key", L"키 추가"));
+            if (!capturing && canClick(add)) { popup.captureCmd = cmd->id; in.pressed[0] = false; }
+        }
+        if (HotkeysChanged(cmd->id) && !rowCapturing) {
+            RectF reset(rr.Right() - 6 * S - chipH, rr.y + 6 * S, chipH, chipH);
+            bool hov = Hover(reset) && Hover(c) && !capturing;
+            r.FillRect(reset, hov ? theme.hover : Color(0, 0, 0, 0), 4 * S);
+            r.Text(FONT_ICON_SMALL, GLYPH_REFRESH, reset, hov ? theme.accent : theme.textDim, ko);
+            if (hov) SetTooltip(HashStr(cmd->id, 43), TL(L"Restore the default keys", L"기본 키로 되돌리기"));
+            if (!capturing && canClick(reset)) {
+                std::wstring msg = ResetCommandHotkeys(cmd->id);
+                if (!msg.empty()) Toast(msg);
+                in.pressed[0] = false;
+            }
+        }
+    }
+    if (list.empty()) r.Text(FONT_UI, TL(L"No matching command.", L"일치하는 명령이 없습니다."), RectF(c.x + 10 * S, c.y, c.w, rowH), theme.textFaint);
+    f32 contentH = rowH * list.size();
+    if (Hover(c) && in.wheel != 0) popup.scroll -= in.wheel * rowH * 3;
+    popup.scroll = Clamp(popup.scroll, 0.f, std::max(0.f, contentH - c.h));
+    r.PopClip();
 }
 
 // ------------------------------------------------------------------ shared menu box

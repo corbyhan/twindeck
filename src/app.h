@@ -264,6 +264,8 @@ struct Popup {
     bool menuEnsureSel = false; // scroll the dropdown so `sel` is visible on the next draw
     int viewTabId = 0;         // view mode slider: the tab it changes
     bool viewDrag = false;
+    std::wstring captureCmd;   // options > Shortcuts: command waiting for a key press
+    u64 resetArmedTick = 0;    // options > Shortcuts: "reset all" asks for a second click
 };
 
 struct ToastMsg {
@@ -514,6 +516,15 @@ struct App {
     const Command *FindCommand(const std::wstring &id) const;
     bool RunCommand(const std::wstring &id);
     std::wstring HotkeyText(const std::wstring &cmdId) const;
+    std::vector<std::wstring> CommandHotkeys(const std::wstring &cmd) const;
+    std::vector<std::wstring> DefaultHotkeys(const std::wstring &cmd) const;
+    bool HotkeysChanged(const std::wstring &cmd) const;
+    void SetCommandHotkeys(const std::wstring &cmd, const std::vector<std::wstring> &keys);
+    void ResetAllHotkeys();
+    std::wstring KeyEventHotkey(const KeyEvent &k) const;
+    std::wstring AssignHotkey(const std::wstring &cmd, const std::wstring &keys);
+    std::wstring ResetCommandHotkeys(const std::wstring &cmd);
+    std::wstring TakeHotkey(const std::wstring &cmd, const std::wstring &keys);
     bool HandleHotkey(const KeyEvent &k);
 
     // ---- input (input.cpp)
@@ -587,6 +598,13 @@ struct App {
     void PopupKey(const KeyEvent &k);
     void ActivatePaletteItem(int idx, bool alt);
     void DrawOptions(RectF r);
+    void DrawShortcutOptions(RectF r);
+    static const int kOptionsTabs = 5;  // general, appearance, behavior, system, shortcuts
+    static const int kShortcutsTab = 4;
+    // the options window's Shortcuts search box takes typed text (not while a key is being recorded)
+    bool ShortcutSearchFocused() const {
+        return popup.kind == POPUP_OPTIONS && popup.optionsTab == kShortcutsTab && popup.captureCmd.empty() && !popup.subMenu;
+    }
     // draws popup.menu at (x, y); returns activated item index, -2 when a click landed outside, -1 otherwise
     int  DrawMenuBox(f32 x, f32 y, f32 &scroll, RectF *outRect);
     void OpenOptionsDropdown(std::vector<MenuItem> items, f32 x, f32 y, f32 minW);

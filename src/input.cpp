@@ -115,7 +115,7 @@ bool TextEdit::OnKey(const KeyEvent &k, HWND hwnd, bool *changed) {
 
 // ================================================================== IME
 TextEdit *App::FocusedEdit() {
-    if (popup.kind == POPUP_PALETTE || popup.kind == POPUP_GOTO) return &popup.edit;
+    if (popup.kind == POPUP_PALETTE || popup.kind == POPUP_GOTO || ShortcutSearchFocused()) return &popup.edit;
     switch (focus) {
     case FOCUS_FILTER: return &filterEdit;
     case FOCUS_PATH: return &pathEdit;
@@ -174,6 +174,12 @@ void App::OnText(const std::wstring &s) {
         return;
     }
     if (popup.kind == POPUP_OPTIONS && popup.subMenu) { DropdownTypeAhead(s); return; }
+    if (ShortcutSearchFocused()) {
+        popup.edit.Insert(s);
+        popup.scroll = 0;
+        Invalidate();
+        return;
+    }
     if (popup.kind == POPUP_OPTIONS || popup.kind == POPUP_MENU || popup.kind == POPUP_CONFIRM || popup.kind == POPUP_VIEW) return;
     if (TextEdit *e = FocusedEdit()) {
         e->Insert(s);

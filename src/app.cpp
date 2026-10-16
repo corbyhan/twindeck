@@ -344,6 +344,7 @@ void App::ApplyScreenshotScene() {
         if (key == L"select") shotSelect = val; // applied once the folder has loaded (OnLoaded)
         else if (key == L"filter") BeginFilter(val);
         else if (key == L"palette") OpenPalette(val);
+        else if (key == L"options") { OpenOptions(); popup.optionsTab = Clamp(_wtoi(val.c_str()), 0, kOptionsTabs - 1); }
         else if (key == L"view" && t) OpenViewPopup(t, RectF((f32)r.Width() - 60 * S, (f32)r.Height() - 30 * S, 50 * S, 24 * S));
         else if (key == L"setup") {
             OpenSetup(false);
