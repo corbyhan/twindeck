@@ -311,8 +311,9 @@ void App::DrawLayout(LayoutNode *n, RectF rc) {
 // ================================================================== title bar
 void App::ShowAppMenu(f32 x, f32 y) {
     std::vector<MenuItem> m;
-    auto add = [&](const wchar_t *en, const wchar_t *ko, const wchar_t *cmd) {
+    auto add = [&](const wchar_t *glyph, const wchar_t *en, const wchar_t *ko, const wchar_t *cmd) {
         MenuItem it;
+        it.glyph = glyph;
         it.label = TL(en, ko);
         it.hotkey = HotkeyText(cmd);
         std::wstring c = cmd;
@@ -321,24 +322,24 @@ void App::ShowAppMenu(f32 x, f32 y) {
         m.push_back(it);
     };
     auto sep = [&] { MenuItem it; it.separator = true; m.push_back(it); };
-    add(L"New Window", L"새 창", L"NewWindow");
-    add(L"New Tab", L"새 탭", L"NewTab");
-    add(L"Reopen Closed Tab", L"닫은 탭 다시 열기", L"ReopenClosedTab");
+    add(L"\xE7C4", L"New Window", L"새 창", L"NewWindow");
+    add(GLYPH_ADD, L"New Tab", L"새 탭", L"NewTab");
+    add(L"\xE7A7", L"Reopen Closed Tab", L"닫은 탭 다시 열기", L"ReopenClosedTab");
     sep();
-    add(L"Command Palette", L"명령 팔레트", L"CommandsOpen");
-    add(L"Go To…", L"이동…", L"GoToOpen");
+    add(GLYPH_COMMAND, L"Command Palette", L"명령 팔레트", L"CommandsOpen");
+    add(L"\xE8DA", L"Go To…", L"이동…", L"GoToOpen");
     sep();
-    add(L"Quick Access", L"빠른 실행 사이드바", L"ToggleSidebar");
-    add(L"Inspector", L"미리 보기 창", L"InspectorToggle");
-    add(L"Split Right", L"오른쪽으로 분할", L"PanelSplitRight");
-    add(L"Split Bottom", L"아래로 분할", L"PanelSplitBottom");
-    add(L"Show Hidden Files", L"숨김 파일 표시", L"ToggleHiddenFiles");
+    add(GLYPH_SIDEBAR, L"Quick Access", L"빠른 실행 사이드바", L"ToggleSidebar");
+    add(GLYPH_PREVIEW, L"Inspector", L"미리 보기 창", L"InspectorToggle");
+    add(GLYPH_SPLIT_R, L"Split Right", L"오른쪽으로 분할", L"PanelSplitRight");
+    add(GLYPH_SPLIT_B, L"Split Bottom", L"아래로 분할", L"PanelSplitBottom");
+    add(L"\xE890", L"Show Hidden Files", L"숨김 파일 표시", L"ToggleHiddenFiles");
     sep();
-    add(L"Toggle Dark/Light Theme", L"다크/라이트 테마 전환", L"ToggleTheme");
-    add(L"Toggle Language (한국어/English)", L"언어 전환 (한국어/English)", L"ToggleLanguage");
-    add(L"Options", L"옵션", L"OptionsOpen");
+    add(L"\xE706", L"Toggle Dark/Light Theme", L"다크/라이트 테마 전환", L"ToggleTheme");
+    add(L"\xE774", L"Toggle Language (한국어/English)", L"언어 전환 (한국어/English)", L"ToggleLanguage");
+    add(GLYPH_SETTINGS, L"Options", L"옵션", L"OptionsOpen");
     sep();
-    add(L"Exit", L"종료", L"CloseWindow");
+    add(L"\xE7E8", L"Exit", L"종료", L"CloseWindow");
     OpenMenu(std::move(m), x, y);
 }
 

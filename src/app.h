@@ -235,6 +235,7 @@ struct MenuItem {
     bool checked = false;
     bool enabled = true;
     ID2D1Bitmap *icon = nullptr;
+    const wchar_t *glyph = nullptr; // icon font glyph, drawn when there is no bitmap icon
 };
 
 struct PaletteItem {

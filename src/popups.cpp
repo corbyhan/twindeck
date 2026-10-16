@@ -436,12 +436,16 @@ void App::DrawOptions(RectF pr) {
     RectF tabs = body.CutLeft(170 * S);
     const wchar_t *tabNames[kOptionsTabs] = {T(S_SetGeneral), T(S_SetAppearance), T(S_SetBehavior), T(S_SetSystem),
                                              TL(L"Shortcuts", L"단축키")};
+    const wchar_t *tabGlyphs[kOptionsTabs] = {GLYPH_SETTINGS, L"\xE790", L"\xE8B0", L"\xE7F4", L"\xE765"};
     for (int i = 0; i < kOptionsTabs; i++) {
         RectF tr(tabs.x + 10 * S, tabs.y + 4 * S + i * (lh + 16 * S), tabs.w - 20 * S, lh + 12 * S);
         bool act = popup.optionsTab == i;
         if (act) r.FillRect(tr, theme.selection, 6 * S);
         else if (Hover(tr)) r.FillRect(tr, theme.hover, 6 * S);
-        r.Text(act ? FONT_UI_BOLD : FONT_UI, tabNames[i], RectF(tr.x + 12 * S, tr.y, tr.w - 16 * S, tr.h), theme.text);
+        TextOpts go; go.align = ALIGN_CENTER; go.ellipsis = false;
+        f32 gw = std::floor(lh * 1.3f);
+        r.Text(FONT_ICON_SMALL, tabGlyphs[i], RectF(tr.x + 8 * S, tr.y, gw, tr.h), act ? theme.accent : theme.textDim, go);
+        r.Text(act ? FONT_UI_BOLD : FONT_UI, tabNames[i], RectF(tr.x + 12 * S + gw, tr.y, tr.w - 16 * S - gw, tr.h), theme.text);
         if (Clicked(tr) && popup.optionsTab != i) {
             popup.optionsTab = i;
             popup.scroll = 0;
@@ -799,7 +803,7 @@ int App::DrawMenuBox(f32 px, f32 py, f32 &scroll, RectF *outRect) {
         if (m.separator) continue;
         labelW = std::max(labelW, r.Measure(FONT_UI, m.label));
         if (!m.hotkey.empty()) hkW = std::max(hkW, r.Measure(FONT_SMALL, m.hotkey));
-        if (m.icon) anyIcon = true;
+        if (m.icon || m.glyph) anyIcon = true;
         if (m.checked) anyCheck = true;
     }
     f32 lead = 12 * S + (anyIcon ? iconSz + 8 * S : 0) + (anyCheck ? 18 * S : 0);
@@ -865,6 +869,10 @@ int App::DrawMenuBox(f32 px, f32 py, f32 &scroll, RectF *outRect) {
         }
         if (anyIcon) {
             if (m.icon) r.DrawBitmap(m.icon, RectF(tx, ir.y + (itemH - iconSz) / 2, iconSz, iconSz));
+            else if (m.glyph) {
+                TextOpts go; go.align = ALIGN_CENTER; go.ellipsis = false;
+                r.Text(FONT_ICON_SMALL, m.glyph, RectF(tx, ir.y, iconSz, ir.h), m.enabled ? (i == popup.sel ? theme.text : theme.textDim) : theme.textFaint, go);
+            }
             tx += iconSz + 8 * S;
         }
         f32 hkSpace = hkW > 0 ? hkW + 20 * S : 8 * S;

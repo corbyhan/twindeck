@@ -295,8 +295,9 @@ void App::ShowShellMenu(Tab *t, bool background, POINT screen) {
 void App::ShowContextMenu(Tab *t, f32 x, f32 y, bool background) {
     if (!t) return;
     std::vector<MenuItem> m;
-    auto add = [&](const std::wstring &label, const std::wstring &cmd, std::function<void()> fn = nullptr) {
+    auto add = [&](const wchar_t *glyph, const std::wstring &label, const std::wstring &cmd, std::function<void()> fn = nullptr) {
         MenuItem it;
+        it.glyph = glyph;
         it.label = label;
         it.hotkey = cmd.empty() ? L"" : HotkeyText(cmd);
         std::wstring c = cmd;
@@ -310,74 +311,74 @@ void App::ShowContextMenu(Tab *t, f32 x, f32 y, bool background) {
 
     if (t->kind == VIEW_RECYCLE) {
         if (!sel.empty()) {
-            add(TL(L"Restore", L"복원"), L"RestoreTrashItems");
-            add(TL(L"Delete Permanently", L"영구 삭제"), L"DeletePermanently");
+            add(L"\xE7A7", TL(L"Restore", L"복원"), L"RestoreTrashItems");
+            add(GLYPH_CLOSE, TL(L"Delete Permanently", L"영구 삭제"), L"DeletePermanently");
             sep();
         }
-        add(TL(L"Empty Recycle Bin", L"휴지통 비우기"), L"EmptyTrashItems");
-        add(TL(L"Refresh", L"새로 고침"), L"Refresh");
+        add(GLYPH_DELETE, TL(L"Empty Recycle Bin", L"휴지통 비우기"), L"EmptyTrashItems");
+        add(GLYPH_REFRESH, TL(L"Refresh", L"새로 고침"), L"Refresh");
     } else if (!sel.empty()) {
-        add(TL(L"Open", L"열기"), L"Open");
+        add(L"\xE8E5", TL(L"Open", L"열기"), L"Open");
         if (anyDir) {
-            add(TL(L"Open in New Tab", L"새 탭에서 열기"), L"OpenInTab");
-            add(TL(L"Open in Right Split", L"오른쪽 분할 창에서 열기"), L"OpenInRightSplit");
+            add(L"\xE8A7", TL(L"Open in New Tab", L"새 탭에서 열기"), L"OpenInTab");
+            add(GLYPH_SPLIT_R, TL(L"Open in Right Split", L"오른쪽 분할 창에서 열기"), L"OpenInRightSplit");
         } else if (sel.size() == 1) {
             std::wstring p = sel[0];
-            add(TL(L"Open With…", L"연결 프로그램…"), L"", [this, p] { ShellOpenWith(hwnd, p); });
+            add(L"\xE7AC", TL(L"Open With…", L"연결 프로그램…"), L"", [this, p] { ShellOpenWith(hwnd, p); });
         }
         sep();
         if (t->kind == VIEW_FOLDER) {
-            add(TL(L"Cut", L"잘라내기"), L"Cut");
-            add(TL(L"Copy", L"복사"), L"Copy");
+            add(L"\xE8C6", TL(L"Cut", L"잘라내기"), L"Cut");
+            add(L"\xE8C8", TL(L"Copy", L"복사"), L"Copy");
             if (ClipboardHasFiles() && anyDir && sel.size() == 1) {
                 std::wstring dest = sel[0];
-                add(TL(L"Paste Into Folder", L"폴더에 붙여넣기"), L"", [this, dest] {
+                add(L"\xE77F", TL(L"Paste Into Folder", L"폴더에 붙여넣기"), L"", [this, dest] {
                     std::vector<std::wstring> files; bool cut = false;
                     if (ClipboardGetFiles(hwnd, files, &cut)) FileOperation(hwnd, cut ? FOP_MOVE : FOP_COPY, files, dest, nullptr);
                 });
             }
-            add(TL(L"Duplicate", L"복제"), L"Duplicate");
+            add(L"\xE7C4", TL(L"Duplicate", L"복제"), L"Duplicate");
         }
-        add(TL(L"Copy Path", L"경로 복사"), L"CopyPath");
+        add(L"\xE71B", TL(L"Copy Path", L"경로 복사"), L"CopyPath");
         if (t->kind == VIEW_FOLDER) {
             sep();
-            add(TL(L"Rename", L"이름 바꾸기"), L"Rename");
-            add(TL(L"Move to Recycle Bin", L"휴지통으로 이동"), L"Trash");
-            add(TL(L"Delete Permanently", L"영구 삭제"), L"DeletePermanently");
+            add(L"\xE8AC", TL(L"Rename", L"이름 바꾸기"), L"Rename");
+            add(GLYPH_DELETE, TL(L"Move to Recycle Bin", L"휴지통으로 이동"), L"Trash");
+            add(GLYPH_CLOSE, TL(L"Delete Permanently", L"영구 삭제"), L"DeletePermanently");
         }
         sep();
         if (anyDir && sel.size() == 1) {
             std::wstring p = sel[0];
-            add(IsBookmarked(p) ? TL(L"Remove Bookmark", L"즐겨찾기 제거") : TL(L"Add Bookmark", L"즐겨찾기 추가"), L"",
+            add(IsBookmarked(p) ? GLYPH_STAR_FILL : GLYPH_STAR, IsBookmarked(p) ? TL(L"Remove Bookmark", L"즐겨찾기 제거") : TL(L"Add Bookmark", L"즐겨찾기 추가"), L"",
                 [this, p] { ToggleBookmark(p); });
         }
-        add(TL(L"Show in Explorer", L"탐색기에서 보기"), L"", [this, sel] { OpenExplorerAt(PathParent(sel[0]), sel[0]); });
-        add(TL(L"Properties", L"속성"), L"", [this, sel] { ShellProperties(hwnd, sel); });
+        add(L"\xE838", TL(L"Show in Explorer", L"탐색기에서 보기"), L"", [this, sel] { OpenExplorerAt(PathParent(sel[0]), sel[0]); });
+        add(L"\xE946", TL(L"Properties", L"속성"), L"", [this, sel] { ShellProperties(hwnd, sel); });
     } else {
         if (t->kind == VIEW_FOLDER) {
-            add(TL(L"New Folder", L"새 폴더"), L"CreateFolder");
-            add(TL(L"New File", L"새 파일"), L"CreateFile");
-            if (ClipboardHasFiles()) add(TL(L"Paste", L"붙여넣기"), L"Paste");
+            add(L"\xE8F4", TL(L"New Folder", L"새 폴더"), L"CreateFolder");
+            add(L"\xE7C3", TL(L"New File", L"새 파일"), L"CreateFile");
+            if (ClipboardHasFiles()) add(L"\xE77F", TL(L"Paste", L"붙여넣기"), L"Paste");
             sep();
         }
-        add(TL(L"Refresh", L"새로 고침"), L"Refresh");
-        add(TL(L"Sort by Name", L"이름순 정렬"), L"SortByName");
-        add(TL(L"Sort by Date Modified", L"수정한 날짜순 정렬"), L"SortByDateModified");
-        add(TL(L"Sort by Size", L"크기순 정렬"), L"SortBySize");
-        add(TL(L"Sort by Type", L"유형순 정렬"), L"SortByType");
+        add(GLYPH_REFRESH, TL(L"Refresh", L"새로 고침"), L"Refresh");
+        add(L"\xE8CB", TL(L"Sort by Name", L"이름순 정렬"), L"SortByName");
+        add(nullptr, TL(L"Sort by Date Modified", L"수정한 날짜순 정렬"), L"SortByDateModified");
+        add(nullptr, TL(L"Sort by Size", L"크기순 정렬"), L"SortBySize");
+        add(nullptr, TL(L"Sort by Type", L"유형순 정렬"), L"SortByType");
         if (t->kind == VIEW_FOLDER) {
             sep();
             std::wstring p = t->path;
-            add(IsBookmarked(p) ? TL(L"Remove Bookmark", L"즐겨찾기 제거") : TL(L"Add Bookmark", L"즐겨찾기 추가"), L"BookmarksToggle");
-            add(TL(L"Open Terminal Here", L"여기서 터미널 열기"), L"OpenConsole");
-            add(TL(L"Open in File Explorer", L"파일 탐색기에서 열기"), L"OpenFileExplorer");
-            add(TL(L"Properties", L"속성"), L"", [this, p] { ShellProperties(hwnd, {p}); });
+            add(IsBookmarked(p) ? GLYPH_STAR_FILL : GLYPH_STAR, IsBookmarked(p) ? TL(L"Remove Bookmark", L"즐겨찾기 제거") : TL(L"Add Bookmark", L"즐겨찾기 추가"), L"BookmarksToggle");
+            add(L"\xE756", TL(L"Open Terminal Here", L"여기서 터미널 열기"), L"OpenConsole");
+            add(L"\xE838", TL(L"Open in File Explorer", L"파일 탐색기에서 열기"), L"OpenFileExplorer");
+            add(L"\xE946", TL(L"Properties", L"속성"), L"", [this, p] { ShellProperties(hwnd, {p}); });
         }
     }
     if (t->kind != VIEW_RECYCLE) {
         sep();
         bool bg = background;
-        add(T(S_MoreOptions), L"", [this, t, bg] {
+        add(GLYPH_MORE, T(S_MoreOptions), L"", [this, t, bg] {
             POINT pt;
             GetCursorPos(&pt);
             ShowShellMenu(t, bg, pt);
