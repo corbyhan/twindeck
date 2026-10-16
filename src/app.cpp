@@ -305,7 +305,7 @@ bool App::Init(HINSTANCE inst, const std::wstring &cmdPath, bool setupRequested)
     if (setupRequested || setupExe || firstStart) {
         if (firstStart) { settings.setupPrompted = true; SaveConfig(); }
         OpenSetup(true);
-        int sw = (int)(760 * S), sh = (int)(820 * S);
+        int sw = (int)(880 * S), sh = (int)(600 * S);
         HMONITOR mon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
         MONITORINFO mi = {sizeof(mi)};
         GetMonitorInfoW(mon, &mi);

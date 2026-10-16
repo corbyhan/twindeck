@@ -163,32 +163,10 @@ static const wchar_t *GlyphFor(int mode) {
 }
 const wchar_t *App::ViewModeGlyph(const Tab *t) const { return GlyphFor(t->viewMode); }
 
-// ------------------------------------------------------------------ status bar slider popup
-// Track from top (XL icons) to bottom (details). The icon part is continuous (log scale), the rest snaps.
-static const f32 kUM = 0.6f, kUList = 0.73f, kUTree = 0.865f, kUDetails = 1.f;
-
-static f32 IconU(f32 px) { return kUM * logf(kIconMax / Clamp(px, kIconMin, kIconMax)) / logf(kIconMax / kIconMin); }
-
-static f32 TabU(const Tab *t) {
-    switch (t->viewMode) {
-    case LV_ICONS: return IconU(t->iconSize);
-    case LV_LIST: return kUList;
-    case LV_TREE: return kUTree;
-    default: return kUDetails;
-    }
-}
-
-static void ApplyU(App *a, Tab *t, f32 u) {
-    u = Clamp(u, 0.f, 1.f);
-    if (u <= kUM + 0.04f) {
-        f32 k = Clamp(u, 0.f, kUM) / kUM;
-        f32 px = kIconMax * powf(kIconMin / kIconMax, k);
-        a->SetViewMode(t, LV_ICONS, std::floor(px + 0.5f));
-        a->sessionDirty = true;
-    } else if (u < (kUList + kUTree) / 2) a->SetViewMode(t, LV_LIST);
-    else if (u < (kUTree + kUDetails) / 2) a->SetViewMode(t, LV_TREE);
-    else a->SetViewMode(t, LV_DETAILS);
-}
+// ------------------------------------------------------------------ status bar view popup
+// A row of mode buttons; for the icon view a horizontal size slider (log scale 48..256 px) below it.
+static f32 IconT(f32 px) { return logf(Clamp(px, kIconMin, kIconMax) / kIconMin) / logf(kIconMax / kIconMin); }
+static f32 IconPxAt(f32 t) { return std::floor(kIconMin * powf(kIconMax / kIconMin, Clamp(t, 0.f, 1.f)) + 0.5f); }
 
 void App::OpenViewPopup(Tab *t, RectF anchor) {
     popup = Popup();
@@ -205,59 +183,69 @@ void App::DrawViewPopup() {
     Tab *t = FindTab(popup.viewTabId);
     if (!t) { ClosePopup(); return; }
     f32 lh = r.Metrics(FONT_UI).lineH;
-    f32 w = std::floor(std::max(190 * S, lh * 10)), h = std::floor(std::max(300 * S, lh * 15));
+    f32 pad = std::floor(12 * S);
+    f32 btnW = std::floor(std::max(76 * S, lh * 4.2f)), btnH = std::floor(lh * 2 + 30 * S);
+    f32 gap = std::floor(6 * S);
+    bool iconsView = t->viewMode == LV_ICONS;
+    f32 sliderH = iconsView ? std::floor(lh * 2 + 26 * S) : 0;
+    f32 w = pad * 2 + btnW * 4 + gap * 3;
+    f32 h = pad + lh + 10 * S + btnH + sliderH + pad;
     RectF pr(std::max(4 * S, popup.x - w), std::max(4 * S, popup.y - h - 6 * S), w, h);
     popup.rect = pr;
     r.Shadow(pr, 8 * S, 12 * S, 0.3f);
     r.FillRect(pr, theme.popupBg, 8 * S);
     r.StrokeRect(pr, theme.popupBorder, 1 * S, 8 * S);
+    f32 y = pr.y + pad;
+    r.Text(FONT_UI_BOLD, TL(L"View", L"보기"), RectF(pr.x + pad, y, w - 2 * pad, lh), theme.text);
+    y += lh + 10 * S;
 
-    f32 ty0 = pr.y + 22 * S, ty1 = pr.Bottom() - 22 * S;
-    f32 tx = pr.Right() - 24 * S;
-    auto yOf = [&](f32 u) { return ty0 + u * (ty1 - ty0); };
-    // track
-    RectF track(tx - 2 * S, ty0, 4 * S, ty1 - ty0);
-    r.FillRect(track, theme.border, 2 * S);
-    // labels
-    struct Stop { f32 u; int mode; f32 px; const wchar_t *en, *ko; };
-    Stop stops[] = {
-        {0, LV_ICONS, kIconMax, L"XL Icons", L"아주 큰 아이콘"},
-        {IconU(96), LV_ICONS, 96, L"L Icons", L"큰 아이콘"},
-        {kUM, LV_ICONS, kIconMin, L"M Icons", L"보통 아이콘"},
-        {kUList, LV_LIST, 0, L"List", L"목록"},
-        {kUTree, LV_TREE, 0, L"Tree", L"트리"},
-        {kUDetails, LV_DETAILS, 0, L"Details", L"자세히"},
-    };
-    f32 rowH = std::floor(lh + 8 * S);
-    TextOpts go; go.align = ALIGN_CENTER; go.ellipsis = false;
-    for (auto &st : stops) {
-        RectF lr(pr.x + 8 * S, std::floor(yOf(st.u) - rowH / 2), tx - pr.x - 24 * S, rowH);
-        bool cur = st.mode == t->viewMode && (st.mode != LV_ICONS || fabsf(t->iconSize - st.px) < 1);
-        bool hov = Hover(lr) && !popup.viewDrag;
-        if (cur) r.FillRect(lr, theme.selection, 4 * S);
-        else if (hov) r.FillRect(lr, theme.hover, 4 * S);
-        r.Text(FONT_ICON_SMALL, GlyphFor(st.mode), RectF(lr.x + 4 * S, lr.y, 20 * S, lr.h), theme.textDim, go);
-        r.Text(FONT_UI, TL(st.en, st.ko), RectF(lr.x + 30 * S, lr.y, lr.w - 34 * S, lr.h), theme.text);
-        r.Line(tx - 6 * S, yOf(st.u), tx + 6 * S, yOf(st.u), theme.textFaint, 1 * S);
+    struct Mode { int mode; const wchar_t *en, *ko; };
+    const Mode modes[4] = {{LV_DETAILS, L"Details", L"자세히"}, {LV_TREE, L"Tree", L"트리"}, {LV_LIST, L"List", L"목록"},
+                           {LV_ICONS, L"Icons", L"아이콘"}};
+    TextOpts c; c.align = ALIGN_CENTER; c.ellipsis = false;
+    for (int i = 0; i < 4; i++) {
+        RectF b(pr.x + pad + i * (btnW + gap), y, btnW, btnH);
+        bool cur = t->viewMode == modes[i].mode;
+        bool hov = Hover(b) && !popup.viewDrag;
+        r.FillRect(b, cur ? theme.selection : (hov ? theme.hover : theme.inputBg), 6 * S);
+        r.StrokeRect(b, cur ? theme.accent : theme.border, cur ? std::max(1.5f, 1.5f * S) : std::max(1.f, S), 6 * S);
+        r.Text(FONT_ICON, GlyphFor(modes[i].mode), RectF(b.x, b.y + 8 * S, b.w, lh + 8 * S), cur ? theme.accent : theme.textDim, c);
+        r.Text(FONT_SMALL, TL(modes[i].en, modes[i].ko), RectF(b.x + 2 * S, b.Bottom() - lh - 8 * S, b.w - 4 * S, lh), cur ? theme.text : theme.textDim, c);
         if (hov && in.pressed[0]) {
-            SetViewMode(t, st.mode, st.px);
+            SetViewMode(t, modes[i].mode);
             in.pressed[0] = false;
         }
     }
-    // knob
-    f32 ky = yOf(TabU(t));
-    RectF knob(tx - 8 * S, ky - 8 * S, 16 * S, 16 * S);
-    RectF hit(tx - 14 * S, ty0 - 10 * S, 28 * S, ty1 - ty0 + 20 * S);
-    if (Hover(hit) && in.pressed[0]) { popup.viewDrag = true; in.pressed[0] = false; }
-    if (popup.viewDrag) {
-        if (!in.down[0]) popup.viewDrag = false;
-        else ApplyU(this, t, (in.my - ty0) / (ty1 - ty0));
-        ky = yOf(TabU(t));
-        knob = RectF(tx - 8 * S, ky - 8 * S, 16 * S, 16 * S);
+    y += btnH;
+
+    if (iconsView) {
+        y += 12 * S;
+        r.Text(FONT_SMALL, TL(L"Icon size", L"아이콘 크기"), RectF(pr.x + pad, y, w / 2, lh), theme.textDim);
+        TextOpts ro; ro.align = ALIGN_RIGHT;
+        r.Text(FONT_SMALL, Format(L"%.0f px", t->iconSize), RectF(pr.x + w / 2, y, w / 2 - pad, lh), theme.text, ro);
+        y += lh + 6 * S;
+        f32 smallW = r.Measure(FONT_SMALL, TL(L"Small", L"작게")), bigW = r.Measure(FONT_SMALL, TL(L"Large", L"크게"));
+        r.Text(FONT_SMALL, TL(L"Small", L"작게"), RectF(pr.x + pad, y, smallW + 4 * S, lh), theme.textFaint);
+        r.Text(FONT_SMALL, TL(L"Large", L"크게"), RectF(pr.Right() - pad - bigW - 2 * S, y, bigW + 4 * S, lh), theme.textFaint);
+        f32 tx0 = pr.x + pad + smallW + 12 * S, tx1 = pr.Right() - pad - bigW - 12 * S;
+        f32 cy = std::floor(y + lh / 2);
+        RectF hit(tx0 - 10 * S, cy - 12 * S, tx1 - tx0 + 20 * S, 24 * S);
+        if (Hover(hit) && in.pressed[0]) { popup.viewDrag = true; in.pressed[0] = false; }
+        if (popup.viewDrag) {
+            if (!in.down[0]) popup.viewDrag = false;
+            else {
+                f32 px = IconPxAt((in.mx - tx0) / std::max(1.f, tx1 - tx0));
+                if (px != t->iconSize) { t->iconSize = px; sessionDirty = true; Invalidate(); }
+            }
+        }
+        f32 kx = tx0 + IconT(t->iconSize) * (tx1 - tx0);
+        r.FillRect(RectF(tx0, cy - 2 * S, tx1 - tx0, 4 * S), theme.border, 2 * S);
+        r.FillRect(RectF(tx0, cy - 2 * S, kx - tx0, 4 * S), theme.accent, 2 * S);
+        RectF knob(kx - 8 * S, cy - 8 * S, 16 * S, 16 * S);
+        r.FillRect(knob, theme.accent, 8 * S);
+        r.StrokeRect(knob, theme.popupBg, 2 * S, 8 * S);
+        if (Hover(hit) || popup.viewDrag) cursorKind = 1;
     }
-    r.FillRect(RectF(tx - 2 * S, ky, 4 * S, ty1 - ky), theme.accent.WithAlpha(0.5f), 2 * S);
-    r.FillRect(knob, theme.accent, 8 * S);
-    r.StrokeRect(knob, theme.popupBg, 2 * S, 8 * S);
     if (Hover(pr) && in.wheel != 0) { ZoomView(t, in.wheel); in.wheel = 0; }
     bool anyPress = in.pressed[0] || in.pressed[1] || in.pressed[2];
     if (anyPress && !Hover(pr) && !popup.viewDrag) ClosePopup();
