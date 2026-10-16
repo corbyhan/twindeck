@@ -95,6 +95,7 @@ void ShellOpenWith(HWND hwnd, const std::wstring &path);
 void ShellProperties(HWND hwnd, const std::vector<std::wstring> &paths);
 void OpenConsoleAt(const std::wstring &dir);
 void OpenExplorerAt(const std::wstring &dir, const std::wstring &select);
+bool NavigateForegroundExplorer(const std::wstring &path); // false when the foreground window is not File Explorer
 std::wstring KnownFolderPath(const KNOWNFOLDERID &id);
 std::wstring ResolveShortcut(const std::wstring &lnkPath); // returns target or ""
 

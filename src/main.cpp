@@ -311,6 +311,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR, int) {
     std::wstring path;
     bool setupRequested = false;
     bool quiet = false;
+    bool openVerb = false; // started by the folder/drive "open" verb (default file manager)
     for (int i = 1; i < argc; i++) if (std::wstring(argv[i]) == L"--quiet") quiet = true;
     for (int i = 1; i < argc; i++) {
         std::wstring arg = argv[i];
@@ -350,10 +351,18 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR, int) {
             return 0;
         }
         if (arg == L"--setup") { setupRequested = true; continue; }
+        if (arg == L"--open") { openVerb = true; continue; }
         if (arg == L"--root" || arg == L"--quiet") continue;
         path = arg;
+        // a shell verb's "%V" for a drive root is "C:\", and its closing \" comes through as a literal quote: C:"
+        if (!path.empty() && path.back() == L'"') path.back() = L'\\';
     }
     LocalFree(argv);
+    // with TwinDeck as the default file manager, a folder opened inside File Explorer stays in that window
+    if (openVerb && !path.empty() && NavigateForegroundExplorer(path)) {
+        OleUninitialize();
+        return 0;
+    }
 
     App &app = g_appInstance;
     g_app = &app;

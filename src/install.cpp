@@ -178,10 +178,9 @@ bool IsRunningInstalledCopy() {
 
 // ------------------------------------------------------------------ integration on / off
 static void ApplyIntegration(const InstallOptions &o, const std::wstring &exe) {
-    // folder / drive verb: shown in the right-click menu, and used as the default verb by "set as default"
-    bool needVerb = o.contextMenu || o.setDefault;
+    // folder / drive verb shown in the right-click menu
     for (const wchar_t *cls : {L"Directory", L"Drive"}) {
-        if (needVerb) RegisterVerb(cls, kVerb, T(S_OpenInApp), exe);
+        if (o.contextMenu) RegisterVerb(cls, kVerb, T(S_OpenInApp), exe);
         else RemoveVerb(cls, kVerb);
     }
     for (const wchar_t *cls : {L"Directory\\Background", L"DesktopBackground"}) {
@@ -189,13 +188,24 @@ static void ApplyIntegration(const InstallOptions &o, const std::wstring &exe) {
         else RemoveVerb(cls, kHereVerb);
     }
 
-    // default file manager: folders/drives open in TwinDeck, and Win+E opens TwinDeck
+    // default file manager: folders/drives open in TwinDeck through their "open" verb (it takes the place of
+    // Explorer's own Open in the menu; --open hands double-clicks inside File Explorer back to it), and Win+E opens TwinDeck
     for (const wchar_t *cls : {L"Directory", L"Drive"}) {
-        std::wstring key = std::wstring(L"Software\\Classes\\") + cls + L"\\shell";
-        std::wstring cur;
-        bool ours = GetStr(HKEY_CURRENT_USER, key, nullptr, cur) && cur == kVerb;
-        if (o.setDefault) SetStr(HKEY_CURRENT_USER, key, nullptr, kVerb);
-        else if (ours) DeleteValue(HKEY_CURRENT_USER, key, nullptr);
+        std::wstring shellKey = std::wstring(L"Software\\Classes\\") + cls + L"\\shell";
+        std::wstring openKey = shellKey + L"\\open";
+        std::wstring cur, openCmd;
+        bool ours = GetStr(HKEY_CURRENT_USER, openKey + L"\\command", nullptr, openCmd) && ContainsNoCase(openCmd, L"TwinDeck.exe");
+        // the default verb is named explicitly: the system's "none" would let ShellExecute fall through to Folder's open
+        // (older versions made our menu verb the default instead)
+        bool oursDefault = GetStr(HKEY_CURRENT_USER, shellKey, nullptr, cur) && (cur == kVerb || (cur == L"open" && ours));
+        if (o.setDefault) {
+            SetStr(HKEY_CURRENT_USER, openKey + L"\\command", nullptr, L"\"" + exe + L"\" --open \"%V\"");
+            SetStr(HKEY_CURRENT_USER, openKey + L"\\command", L"DelegateExecute", L"");
+            SetStr(HKEY_CURRENT_USER, shellKey, nullptr, L"open");
+        } else {
+            if (oursDefault) DeleteValue(HKEY_CURRENT_USER, shellKey, nullptr);
+            if (ours) RegDeleteTreeW(HKEY_CURRENT_USER, openKey.c_str());
+        }
     }
     std::wstring cmd;
     bool oursWinE = GetStr(HKEY_CURRENT_USER, std::wstring(kThisPcNewWindow) + L"\\command", nullptr, cmd) &&
