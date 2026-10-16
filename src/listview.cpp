@@ -244,7 +244,7 @@ void App::DrawViewPopup() {
         RectF knob(kx - 8 * S, cy - 8 * S, 16 * S, 16 * S);
         r.FillRect(knob, theme.accent, 8 * S);
         r.StrokeRect(knob, theme.popupBg, 2 * S, 8 * S);
-        if (Hover(hit) || popup.viewDrag) cursorKind = 1;
+        if (Hover(hit) || popup.viewDrag) cursorKind = 4;
     }
     if (Hover(pr) && in.wheel != 0) { ZoomView(t, in.wheel); in.wheel = 0; }
     bool anyPress = in.pressed[0] || in.pressed[1] || in.pressed[2];
