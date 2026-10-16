@@ -1,6 +1,7 @@
 // Entry point, window procedure, IME message handling and the render loop
 #include "app.h"
 #include "jobs.h"
+#include "explorernav.h"
 #include <windowsx.h>
 #include <imm.h>
 

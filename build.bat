@@ -24,6 +24,14 @@ set LIBS=user32.lib gdi32.lib shell32.lib ole32.lib oleaut32.lib advapi32.lib sh
  d3d11.lib dxgi.lib d2d1.lib dwrite.lib windowscodecs.lib imm32.lib dwmapi.lib uuid.lib propsys.lib ^
  netapi32.lib mpr.lib dbghelp.lib uxtheme.lib
 
+rem TwinDeckOpen.exe (folder "open" verb, blank icon) is built first: TwinDeck.exe embeds it and writes it out on install
+if not exist build\opener mkdir build\opener
+rc /nologo /fo build\opener\opener.res opener\opener.rc || exit /b 1
+cl /nologo /std:c++17 /EHsc /W3 /utf-8 /O2 /MT /DUNICODE /D_UNICODE /DNOMINMAX /Fobuild\opener\ /Fdbuild\opener\ ^
+ opener\opener.cpp src\explorernav.cpp build\opener\opener.res /Febuild\TwinDeckOpen.exe ^
+ /link /SUBSYSTEM:WINDOWS /OPT:REF /OPT:ICF user32.lib shell32.lib ole32.lib oleaut32.lib shlwapi.lib propsys.lib uuid.lib
+if errorlevel 1 exit /b 1
+
 rc /nologo /fo build\app.res res\app.rc || exit /b 1
 
 cl %CFLAGS% src\*.cpp build\app.res /Febuild\TwinDeck.exe /link /SUBSYSTEM:WINDOWS /DEBUG /MAP:build\TwinDeck.map /OPT:REF /OPT:ICF %LIBS%

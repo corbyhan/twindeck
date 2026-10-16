@@ -20,6 +20,24 @@ std::wstring SelfPath() {
 std::wstring DefaultInstallDir() { return PathJoin(KnownFolderPath(FOLDERID_LocalAppData), L"Programs\\TwinDeck"); }
 
 static std::wstring InstalledExe(const std::wstring &dir) { return PathJoin(dir, L"TwinDeck.exe"); }
+static std::wstring InstalledOpener(const std::wstring &dir) { return PathJoin(dir, L"TwinDeckOpen.exe"); }
+
+// TwinDeckOpen.exe is embedded in TwinDeck.exe (res/app.rc) so that the installer stays a single file
+static const int kOpenerResource = 3;
+
+static bool WriteOpener(const std::wstring &path) {
+    HRSRC res = FindResourceW(nullptr, MAKEINTRESOURCEW(kOpenerResource), RT_RCDATA);
+    HGLOBAL mem = res ? LoadResource(nullptr, res) : nullptr;
+    const void *data = mem ? LockResource(mem) : nullptr;
+    DWORD size = res ? SizeofResource(nullptr, res) : 0;
+    if (!data || !size) return false;
+    HANDLE f = CreateFileW(path.c_str(), GENERIC_WRITE, 0, nullptr, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, nullptr);
+    if (f == INVALID_HANDLE_VALUE) return false;
+    DWORD written = 0;
+    bool ok = WriteFile(f, data, size, &written, nullptr) && written == size;
+    CloseHandle(f);
+    return ok;
+}
 
 // ------------------------------------------------------------------ registry helpers
 static bool SetStr(HKEY root, const std::wstring &key, const wchar_t *name, const std::wstring &value, DWORD type = REG_SZ) {
@@ -189,17 +207,23 @@ static void ApplyIntegration(const InstallOptions &o, const std::wstring &exe) {
     }
 
     // default file manager: folders/drives open in TwinDeck through their "open" verb (it takes the place of
-    // Explorer's own Open in the menu; --open hands double-clicks inside File Explorer back to it), and Win+E opens TwinDeck
+    // Explorer's own Open in the menu), and Win+E opens TwinDeck. The verb runs TwinDeckOpen.exe, which hands
+    // double-clicks inside File Explorer back to it; its blank icon keeps our app icon off the Windows 11 menu's Open.
+    std::wstring opener = InstalledOpener(PathParent(exe));
+    std::wstring openVerbCmd = L"\"" + exe + L"\" --open \"%V\""; // same behavior, only with our icon in the menu
+    if (o.setDefault && WriteOpener(opener)) openVerbCmd = L"\"" + opener + L"\" \"%V\"";
+    else if (!o.setDefault) DeleteFileW(opener.c_str());
     for (const wchar_t *cls : {L"Directory", L"Drive"}) {
         std::wstring shellKey = std::wstring(L"Software\\Classes\\") + cls + L"\\shell";
         std::wstring openKey = shellKey + L"\\open";
         std::wstring cur, openCmd;
-        bool ours = GetStr(HKEY_CURRENT_USER, openKey + L"\\command", nullptr, openCmd) && ContainsNoCase(openCmd, L"TwinDeck.exe");
+        bool ours = GetStr(HKEY_CURRENT_USER, openKey + L"\\command", nullptr, openCmd) &&
+                    (ContainsNoCase(openCmd, L"\\TwinDeck.exe") || ContainsNoCase(openCmd, L"\\TwinDeckOpen.exe"));
         // the default verb is named explicitly: the system's "none" would let ShellExecute fall through to Folder's open
         // (older versions made our menu verb the default instead)
         bool oursDefault = GetStr(HKEY_CURRENT_USER, shellKey, nullptr, cur) && (cur == kVerb || (cur == L"open" && ours));
         if (o.setDefault) {
-            SetStr(HKEY_CURRENT_USER, openKey + L"\\command", nullptr, L"\"" + exe + L"\" --open \"%V\"");
+            SetStr(HKEY_CURRENT_USER, openKey + L"\\command", nullptr, openVerbCmd);
             SetStr(HKEY_CURRENT_USER, openKey + L"\\command", L"DelegateExecute", L"");
             SetStr(HKEY_CURRENT_USER, shellKey, nullptr, L"open");
         } else {
@@ -241,6 +265,7 @@ static void RemoveProgramFiles(const std::wstring &dir) {
     std::wstring exe = InstalledExe(dir);
     if (_wcsicmp(SelfPath().c_str(), exe.c_str()) != 0) DeleteFileW(exe.c_str());
     DeleteFileW((exe + L".old").c_str());
+    DeleteFileW(InstalledOpener(dir).c_str());
     RemoveDirectoryW(dir.c_str()); // only succeeds when empty
 }
 

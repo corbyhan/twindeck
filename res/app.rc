@@ -2,6 +2,8 @@
 
 1 ICON "app.ico"
 1 RT_MANIFEST "app.manifest"
+// TwinDeckOpen.exe, written next to TwinDeck.exe on install (install.cpp: kOpenerResource)
+3 RCDATA "../build/TwinDeckOpen.exe"
 
 VS_VERSION_INFO VERSIONINFO
  FILEVERSION 0,1,1,0
