@@ -4,7 +4,7 @@
 
 <p align="center">
   <a href="https://github.com/corbyhan/twindeck/releases/latest"><img src="https://img.shields.io/github/v/release/corbyhan/twindeck?color=0f9b8e&label=%EB%B2%84%EC%A0%84" alt="최신 버전" /></a>
-  <a href="https://github.com/corbyhan/twindeck/releases"><img src="https://img.shields.io/github/downloads/corbyhan/twindeck/total?color=0f9b8e&label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C" alt="다운로드 수" /></a>
+  <a href="https://github.com/corbyhan/twindeck/releases"><img src="https://img.shields.io/github/downloads/corbyhan/twindeck/total?style=flat&color=0f9b8e&label=%EB%8B%A4%EC%9A%B4%EB%A1%9C%EB%93%9C" alt="다운로드 수" /></a>
   <img src="https://img.shields.io/badge/license-MIT-0f9b8e?style=flat" alt="License: MIT" />
   <img src="https://img.shields.io/badge/Windows%2010%20%7C%2011-4493F8?style=flat-square&logo=windows&logoColor=white" alt="Windows 10, 11" />
 </p>
