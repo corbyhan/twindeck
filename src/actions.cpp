@@ -319,6 +319,13 @@ void App::ShowContextMenu(Tab *t, f32 x, f32 y, bool background) {
         add(GLYPH_REFRESH, TL(L"Refresh", L"새로 고침"), L"Refresh");
     } else if (!sel.empty()) {
         add(L"\xE8E5", TL(L"Open", L"열기"), L"Open");
+        if (t->recursive && sel.size() == 1) { // a subfolder search result: go to where it lives
+            std::wstring p = sel[0];
+            add(L"\xE8DA", TL(L"Open File Location", L"파일 위치로 이동"), L"", [this, t, p] {
+                if (CurTab() == t) EndFilter(true); // leaves the search, also when the file is right in this folder
+                Navigate(t, PathParent(p), true, p);
+            });
+        }
         if (anyDir) {
             add(L"\xE8A7", TL(L"Open in New Tab", L"새 탭에서 열기"), L"OpenInTab");
             add(GLYPH_SPLIT_R, TL(L"Open in Right Split", L"오른쪽 분할 창에서 열기"), L"OpenInRightSplit");

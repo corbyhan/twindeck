@@ -944,9 +944,47 @@ std::wstring App::CellText(Tab *t, const Row &row, ColumnId c) {
     (void)t;
 }
 
+// the characters a wildcard pattern's literal parts matched (*.md -> ".md"), as ranges; empty when it does not match
+static std::vector<std::pair<u32, u32>> WildcardRanges(const std::wstring &ln, const std::wstring &lp) {
+    std::vector<u32> hits;
+    size_t s = 0, p = 0, star = std::wstring::npos, resume = 0, hitsAtStar = 0;
+    while (s < ln.size()) {
+        if (p < lp.size() && (lp[p] == L'?' || (lp[p] != L'*' && lp[p] == ln[s]))) {
+            if (lp[p] != L'?') hits.push_back((u32)s);
+            s++; p++;
+        } else if (p < lp.size() && lp[p] == L'*') {
+            star = p++; resume = s; hitsAtStar = hits.size();
+        } else if (star != std::wstring::npos) {
+            p = star + 1; s = ++resume; hits.resize(hitsAtStar);
+        } else {
+            return {};
+        }
+    }
+    while (p < lp.size() && lp[p] == L'*') p++;
+    if (p != lp.size()) return {};
+    std::vector<std::pair<u32, u32>> v;
+    for (u32 h : hits) {
+        if (!v.empty() && v.back().first + v.back().second == h) v.back().second++;
+        else v.push_back({h, 1});
+    }
+    return v;
+}
+
 static std::vector<std::pair<u32, u32>> MatchRanges(const std::wstring &name, const std::wstring &filter) {
     std::vector<std::pair<u32, u32>> v;
     if (filter.empty()) return v;
+    if (filter.find(L';') != std::wstring::npos) { // alternatives: the first one that matches
+        size_t start = 0;
+        while (start <= filter.size()) {
+            size_t end = filter.find(L';', start);
+            std::wstring part = Trim(filter.substr(start, end == std::wstring::npos ? std::wstring::npos : end - start));
+            if (!part.empty() && FuzzyMatch(name, part)) return MatchRanges(name, part);
+            if (end == std::wstring::npos) break;
+            start = end + 1;
+        }
+        return v;
+    }
+    if (filter.find_first_of(L"*?") != std::wstring::npos) return WildcardRanges(ToLower(name), ToLower(Trim(filter)));
     std::wstring ln = ToLower(name), lf = ToLower(filter);
     size_t pos = ln.find(lf);
     if (pos != std::wstring::npos) { v.push_back({(u32)pos, (u32)lf.size()}); return v; }
@@ -1132,7 +1170,7 @@ void App::DrawList(Panel *p, Tab *t, RectF rc) {
         int hr = (int)((in.my - rc.y + t->scroll) / rh);
         if (hr >= 0 && hr < n) hoverRow = hr;
     }
-    std::wstring filterShown = t->recursive ? L"" : t->filter;
+    std::wstring filterShown = t->filter; // subfolder search results are highlighted too
     bool anySizeRunning = false;
 
     for (int i = first; i <= last; i++) {
@@ -1307,7 +1345,7 @@ void App::DrawGrid(Panel *p, Tab *t, RectF rc) {
     int first = (int)(std::partition_point(g.items.begin(), g.items.end(),
                                            [&](const RectF &it) { return it.Bottom() <= t->scroll; }) - g.items.begin());
     int hoverRow = hovList && in.mx < rc.Right() - sbW ? ItemAtPoint(t, in.mx - rc.x, in.my - rc.y + t->scroll) : -1;
-    std::wstring filterShown = t->recursive ? L"" : t->filter;
+    std::wstring filterShown = t->filter; // subfolder search results are highlighted too
 
     for (int i = first; i < n && i < (int)g.items.size(); i++) {
         RectF cr = g.items[i];
