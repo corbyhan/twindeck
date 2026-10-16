@@ -460,6 +460,10 @@ void App::DrawPanel(Panel *p, RectF rc) {
     RectF header = rc.CutTop(std::floor(lh + 16 * S));
     DrawHeader(p, t, header);
     RectF status = rc.CutBottom(std::floor(r.Metrics(FONT_SMALL).lineH + 10 * S));
+    if (p->folderColumns && t->kind != VIEW_RECYCLE) {
+        f32 h = FolderColumnsHeight();
+        if (rc.h - h >= 140 * S) DrawFolderColumns(p, t, rc.CutTop(h)); // a short panel keeps its list instead
+    }
     if (!IsGridView(t)) { // list / icon views have no columns to show
         RectF cols = rc.CutTop(std::floor(lh + 8 * S));
         DrawColumns(p, t, cols);
@@ -587,7 +591,11 @@ void App::DrawHeader(Panel *p, Tab *t, RectF rc) {
     }
     in_.CutLeft(4 * S);
     // right side buttons
-    RectF bMenu = in_.CutRight(bw), bInsp = in_.CutRight(bw), bSplit = in_.CutRight(bw), bRec = in_.CutRight(bw);
+    RectF bMenu = in_.CutRight(bw), bInsp = in_.CutRight(bw), bSplit = in_.CutRight(bw), bRec = in_.CutRight(bw), bCols = in_.CutRight(bw);
+    if (IconButton(HashId(p, 17), bCols, GLYPH_COLUMNS, TL(L"Folder columns", L"폴더 구조 보기") + std::wstring(L"  ") + HotkeyText(L"ToggleFolderColumns"),
+                   true, p->folderColumns)) {
+        FocusPanel(p); RunCommand(L"ToggleFolderColumns");
+    }
     if (IconButton(HashId(p, 13), bMenu, GLYPH_COMMAND, TL(L"Command palette", L"명령 팔레트") + std::wstring(L"  ") + HotkeyText(L"CommandsOpen"))) {
         FocusPanel(p); OpenPalette();
     }

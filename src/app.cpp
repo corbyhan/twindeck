@@ -102,6 +102,7 @@ static std::unique_ptr<SessionNode> SerializeNode(LayoutNode *n) {
             s->tabs.push_back(st);
         }
         s->activeTab = n->panel->active;
+        s->folderColumns = n->panel->folderColumns;
     } else {
         s->vertical = n->vertical;
         s->ratio = n->ratio;
@@ -152,6 +153,7 @@ static std::unique_ptr<LayoutNode> BuildNode(App *app, const SessionNode *s, Lay
             app->Navigate(t, p, false);
         }
         n->panel->active = Clamp(s->activeTab, 0, (int)n->panel->tabs.size() - 1);
+        n->panel->folderColumns = s->folderColumns;
     } else {
         n->vertical = s->vertical;
         n->ratio = s->ratio;
@@ -834,6 +836,7 @@ void App::UpdateWatches() {
 
 void App::OnDirChanged(const std::wstring &dir) {
     pendingReloads[dir] = GetTickCount64() + 150;
+    if (folderLists.count(dir)) LoadFolderList(dir);
     sizes.Invalidate(dir);
     cloud.InvalidateDir(dir);
     Invalidate();

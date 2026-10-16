@@ -194,6 +194,7 @@ static Json NodeToJson(const SessionNode *n) {
         }
         j[L"Panel"] = tabs;
         j[L"SelectedTab"] = Json(n->activeTab);
+        j[L"FolderColumns"] = Json(n->folderColumns);
     } else {
         j[L"Vertical"] = Json(n->vertical);
         j[L"SplitRatio"] = Json((f64)n->ratio);
@@ -219,6 +220,7 @@ static std::unique_ptr<SessionNode> NodeFromJson(const Json &j, int depth) {
             n->tabs.push_back(st);
         }
         n->activeTab = j.GetInt(L"SelectedTab", 0);
+        n->folderColumns = j.GetBool(L"FolderColumns", false);
         if (n->tabs.empty()) return nullptr;
         return n;
     }

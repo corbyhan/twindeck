@@ -235,6 +235,12 @@ void App::RegisterCommands() {
       [a] { return a->insp.lineNumbers; });
     C(L"InspectorToggleWhitespace", L"Toggle Inspector Whitespace", L"미리 보기 공백 표시", L"whitespace,공백", [a] { a->insp.showWhitespace = !a->insp.showWhitespace; a->Invalidate(); },
       [a] { return a->insp.showWhitespace; });
+    C(L"ToggleFolderColumns", L"Toggle Folder Columns", L"폴더 구조 보기", L"columns,tree,structure,miller,폴더 구조,열", [a] {
+        if (!a->active) return;
+        a->active->folderColumns = !a->active->folderColumns;
+        a->sessionDirty = true;
+        a->Invalidate();
+    }, [a] { return a->active && a->active->folderColumns; });
     C(L"ToggleSidebar", L"Toggle Quick Access", L"빠른 실행 사이드바", L"sidebar,quick access,사이드바", [a] { a->sidebarOpen = !a->sidebarOpen; a->sessionDirty = true; a->Invalidate(); },
       [a] { return a->sidebarOpen; });
     C(L"IncreaseFontSize", L"Increase Font Size", L"글꼴 크게", L"large,big,zoom,확대", [a] {
@@ -368,7 +374,7 @@ static const wchar_t *kDefaultHotkeys[][2] = {
     {L"Ctrl+Alt+5", L"GroupBySize"}, {L"Ctrl+Shift+1", L"SortByName"}, {L"Ctrl+Shift+2", L"SortByDateModified"},
     {L"Ctrl+Shift+3", L"SortByType"}, {L"Ctrl+Shift+4", L"SortBySize"},
     {L"Ctrl+Shift+5", L"ViewDetails"}, {L"Ctrl+Shift+6", L"ViewTree"}, {L"Ctrl+Shift+7", L"ViewList"},
-    {L"Ctrl+Shift+8", L"ViewIconsLarge"}, {L"Ctrl+Shift+B", L"ToggleSidebar"},
+    {L"Ctrl+Shift+8", L"ViewIconsLarge"}, {L"Ctrl+Shift+B", L"ToggleSidebar"}, {L"Ctrl+Shift+K", L"ToggleFolderColumns"},
     {L"Alt+Home", L"GoHome"}, {L"Ctrl+Shift+D", L"InsertCurrentDate"}, {L"F1", L"CommandsOpen"},
 };
 

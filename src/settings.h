@@ -95,6 +95,7 @@ struct SessionNode {
     f32 ratio = 0.5f;
     std::vector<SessionTab> tabs;
     int activeTab = 0;
+    bool folderColumns = false;
     std::unique_ptr<SessionNode> a, b;
 };
 

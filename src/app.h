@@ -192,7 +192,23 @@ struct Panel {
     f32 colW[COL_COUNT] = {};
     RectF rect;               // computed each frame
     RectF listRect;
+    // folder columns strip above the list (foldercolumns.cpp): This PC, then every folder down to the current one
+    bool folderColumns = false;
+    std::wstring fcPath = L"\x01"; // tab path the strip was last laid out for (L"\x01" = never)
+    f32 fcScrollX = 0;
+    std::unordered_map<std::wstring, f32> fcScroll; // vertical scroll per column, keyed by its folder
+    std::unordered_set<std::wstring> fcReveal;      // columns still to scroll their highlighted folder into view
+    int fcTabId = 0;          // current-folder column: sorted entry indices, rebuilt when the tab's rows change
+    u64 fcRowsGen = ~0ull;
+    std::vector<int> fcCurrent;
     Tab *Cur() { return tabs.empty() ? nullptr : tabs[std::min<size_t>(active, tabs.size() - 1)].get(); }
+};
+
+// subfolders of a folder shown in the folder columns strip (loaded in the background)
+struct FolderColumnList {
+    std::vector<FileEntry> dirs; // sorted by name
+    ListError err = LIST_OK;
+    bool loading = false, loaded = false;
 };
 
 struct LayoutNode {
@@ -387,6 +403,7 @@ struct App {
     bool ncHoverMax = false;
     bool mouseBlocked = false;      // true while drawing UI underneath an open popup
     int cursorKind = 0;             // 0 arrow, 1 size-we, 2 size-ns, 3 ibeam, 4 hand
+    std::unordered_map<std::wstring, FolderColumnList> folderLists; // folder columns strip, by folder
     std::vector<FileEntry> sidebarDrives;
     u64 drivesTick = 0;
     bool drivesLoading = false;
@@ -529,6 +546,9 @@ struct App {
     void DrawHeader(Panel *p, Tab *t, RectF r);
     void DrawColumns(Panel *p, Tab *t, RectF r);
     void DrawList(Panel *p, Tab *t, RectF r);
+    f32 FolderColumnsHeight() const;
+    void DrawFolderColumns(Panel *p, Tab *t, RectF r);
+    void LoadFolderList(const std::wstring &dir);
     void DrawGrid(Panel *p, Tab *t, RectF r);
     void OpenSetup(bool installerLaunch);
     void CloseSetup();
@@ -617,3 +637,4 @@ inline u64 HashStr(const std::wstring &s, u64 salt = 0) { return std::hash<std::
 #define GLYPH_SORT_DOWN L""
 #define GLYPH_DRIVE     L""
 #define GLYPH_FOLDER    L""
+#define GLYPH_COLUMNS   L"\xE80A"
