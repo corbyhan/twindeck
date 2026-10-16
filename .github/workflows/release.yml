@@ -34,8 +34,10 @@ jobs:
           # a config file next to the exe switches TwinDeck to portable mode (settings stay in this folder)
           '{ "SetupPrompted": true }' | Set-Content -Encoding utf8 dist/portable/TwinDeck-Config.json
           Compress-Archive -Path dist/portable/* -DestinationPath dist/TwinDeck-portable.zip
-          Get-FileHash dist/TwinDeck-Setup.exe, dist/TwinDeck-portable.zip -Algorithm SHA256 |
-            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" } | Set-Content dist/SHA256SUMS.txt
+          # LF line endings so `sha256sum -c SHA256SUMS.txt` works as is
+          $sums = Get-FileHash dist/TwinDeck-Setup.exe, dist/TwinDeck-portable.zip -Algorithm SHA256 |
+            ForEach-Object { "$($_.Hash.ToLower())  $(Split-Path $_.Path -Leaf)" }
+          [IO.File]::WriteAllText("$PWD/dist/SHA256SUMS.txt", ($sums -join "`n") + "`n")
 
       - uses: actions/upload-artifact@v4
         with:
