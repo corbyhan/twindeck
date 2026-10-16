@@ -217,10 +217,10 @@ void App::PopupKey(const KeyEvent &k) {
     case POPUP_GOTO: {
         int n = (int)popup.items.size();
         if (k.vk == VK_ESCAPE) { ClosePopup(); return; }
-        if (k.vk == VK_DOWN) { if (n) popup.sel = (popup.sel + 1) % n; return; }
-        if (k.vk == VK_UP) { if (n) popup.sel = (popup.sel - 1 + n) % n; return; }
-        if (k.vk == VK_NEXT) { if (n) popup.sel = std::min(n - 1, popup.sel + 10); return; }
-        if (k.vk == VK_PRIOR) { if (n) popup.sel = std::max(0, popup.sel - 10); return; }
+        if (k.vk == VK_DOWN) { if (n) popup.sel = (popup.sel + 1) % n; popup.menuEnsureSel = true; return; }
+        if (k.vk == VK_UP) { if (n) popup.sel = (popup.sel - 1 + n) % n; popup.menuEnsureSel = true; return; }
+        if (k.vk == VK_NEXT) { if (n) popup.sel = std::min(n - 1, popup.sel + 10); popup.menuEnsureSel = true; return; }
+        if (k.vk == VK_PRIOR) { if (n) popup.sel = std::max(0, popup.sel - 10); popup.menuEnsureSel = true; return; }
         if (k.vk == VK_RETURN) { ActivatePaletteItem(popup.sel, k.ctrl); return; }
         if (k.vk == VK_TAB && popup.kind == POPUP_GOTO && popup.sel >= 0 && popup.sel < n) {
             std::wstring key = popup.items[popup.sel].key;
@@ -283,8 +283,9 @@ void App::DrawPopup() {
         r.Text(FONT_ICON_SMALL, popup.kind == POPUP_PALETTE ? GLYPH_COMMAND : GLYPH_FOLDER, ic, theme.textFaint, io);
         DrawTextEdit(popup.edit, RectF(ic.Right(), ir.y, ir.w - ic.w - 8 * S, ir.h), FONT_UI, theme.text,
                      T(popup.kind == POPUP_PALETTE ? S_CommandHint : S_GoToHint), true);
-        // keep selection visible
-        if (popup.sel >= 0) {
+        // bring the selection into view after a keyboard move (not every frame: the wheel scrolls freely)
+        if (popup.menuEnsureSel && popup.sel >= 0) {
+            popup.menuEnsureSel = false;
             if (popup.sel < popup.scroll) popup.scroll = (f32)popup.sel;
             if (popup.sel >= popup.scroll + vis) popup.scroll = (f32)(popup.sel - vis + 1);
         }

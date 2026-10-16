@@ -64,7 +64,9 @@ bool App::IconButton(u64 id, RectF rc, const wchar_t *glyph, const std::wstring 
     o.align = ALIGN_CENTER;
     o.ellipsis = false;
     r.Text(font, glyph, rc, enabled ? (toggled ? theme.accent : theme.textDim) : theme.textFaint, o);
-    return enabled && hov && in.pressed[0];
+    if (!(enabled && hov && in.pressed[0])) return false;
+    in.pressed[0] = false; // the click is the button's: a popup it opens must not see it as a click outside
+    return true;
 }
 
 void App::DrawScrollbar(RectF track, f32 contentH, f32 viewH, f32 &scroll, u64 id) {
