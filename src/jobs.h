@@ -7,6 +7,7 @@
 void JobsInit(HWND notifyWindow);
 void JobsShutdown();                          // waits for outstanding jobs
 void JobSubmit(std::function<void()> work);   // runs on a pool thread (COM MTA initialized)
+void JobSubmitListing(std::function<void()> work); // same, on a separate pool for folder listings the user waits on
 void MainPost(std::function<void()> fn);      // runs on UI thread during MainDrain()
 void MainDrain();
 int  JobsPending();

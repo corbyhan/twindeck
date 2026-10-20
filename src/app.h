@@ -450,6 +450,7 @@ struct App {
     Tab *NewTab(Panel *p, const std::wstring &path, bool activate = true);
     void CloseTab(Panel *p, int index);
     void Navigate(Tab *t, const std::wstring &path, bool pushHistory = true, const std::wstring &selectName = L"");
+    void CancelHiddenSizes();
     void GoBack(Tab *t);
     void GoForward(Tab *t);
     void GoUp(Tab *t);

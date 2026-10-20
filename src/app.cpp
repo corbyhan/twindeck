@@ -637,6 +637,7 @@ void App::CloseTab(Panel *p, int index) {
     if (p->active >= (int)p->tabs.size()) p->active = (int)p->tabs.size() - 1;
     else if (index < p->active) p->active--;
     if (insp.path.size()) ClearInspector();
+    CancelHiddenSizes();
     sessionDirty = true;
     UpdateWatches();
     Invalidate();
@@ -655,7 +656,7 @@ static void StartLoad(App *app, Tab *t) {
     u64 gen = t->loadGen;
     std::wstring path = t->path;
     ViewKind kind = t->kind;
-    JobSubmit([id, gen, path, kind] {
+    JobSubmitListing([id, gen, path, kind] {
         std::vector<FileEntry> list;
         ListError err = LIST_OK;
         if (kind == VIEW_DRIVES) ListDrives(list, true);
@@ -727,6 +728,7 @@ void App::Navigate(Tab *t, const std::wstring &pathIn, bool pushHistory, const s
     t->rowsDirty = true;
     if (t->kind == VIEW_FOLDER && settings.storeRecents) user.TouchRecent(path);
     StartLoad(this, t);
+    CancelHiddenSizes();
     sessionDirty = true;
     UpdateWatches();
     Invalidate();
@@ -822,6 +824,23 @@ void App::OnLoaded(int tabId, u64 gen, std::vector<FileEntry> &&list, ListError 
     t->cursor = Clamp(t->cursor, 0, std::max(0, (int)t->rows.size() - 1));
     if (active && active->Cur() == t) UpdateInspector();
     Invalidate();
+}
+
+// stop folder-size scans no open tab can show any more (switching drives would otherwise pile up whole-drive scans)
+void App::CancelHiddenSizes() {
+    std::vector<std::wstring> roots;
+    ForEachPanel([&](Panel *p) {
+        for (auto &t : p->tabs) if (t->kind == VIEW_FOLDER) roots.push_back(t->path);
+    });
+    std::wstring inspPath = insp.path;
+    sizes.CancelUnless([&](const std::wstring &k) {
+        if (_wcsicmp(k.c_str(), inspPath.c_str()) == 0) return true;
+        for (auto &r : roots) {
+            if (k.size() < r.size() || _wcsnicmp(k.c_str(), r.c_str(), r.size()) != 0) continue;
+            if (k.size() == r.size() || r.back() == L'\\' || k[r.size()] == L'\\') return true;
+        }
+        return false;
+    });
 }
 
 void App::UpdateWatches() {

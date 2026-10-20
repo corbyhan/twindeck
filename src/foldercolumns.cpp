@@ -35,7 +35,7 @@ void App::LoadFolderList(const std::wstring &dir) {
     FolderColumnList &fl = folderLists[dir];
     if (fl.loading) return;
     fl.loading = true;
-    JobSubmit([dir] {
+    JobSubmitListing([dir] {
         std::vector<FileEntry> all;
         ListError err = ListDirectory(dir, all);
         auto dirs = std::make_shared<std::vector<FileEntry>>();

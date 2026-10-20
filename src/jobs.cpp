@@ -9,6 +9,10 @@ static std::atomic<bool> g_posted{false};
 static PTP_POOL g_pool = nullptr;
 static TP_CALLBACK_ENVIRON g_env;
 static PTP_CLEANUP_GROUP g_cleanup = nullptr;
+// folder listings get their own pool so they never queue behind thousands of folder-size batches
+static PTP_POOL g_listPool = nullptr;
+static TP_CALLBACK_ENVIRON g_listEnv;
+static PTP_CLEANUP_GROUP g_listCleanup = nullptr;
 
 void JobsInit(HWND notify) {
     g_notify = notify;
@@ -22,6 +26,16 @@ void JobsInit(HWND notify) {
         SetThreadpoolCallbackPool(&g_env, g_pool);
         g_cleanup = CreateThreadpoolCleanupGroup();
         SetThreadpoolCallbackCleanupGroup(&g_env, g_cleanup, nullptr);
+    }
+    g_listPool = CreateThreadpool(nullptr);
+    if (g_listPool) {
+        SetThreadpoolThreadMinimum(g_listPool, 1);
+        SetThreadpoolThreadMaximum(g_listPool, 8); // a hung network drive must not block other listings
+        InitializeThreadpoolEnvironment(&g_listEnv);
+        SetThreadpoolCallbackPool(&g_listEnv, g_listPool);
+        SetThreadpoolCallbackPriority(&g_listEnv, TP_CALLBACK_PRIORITY_HIGH);
+        g_listCleanup = CreateThreadpoolCleanupGroup();
+        SetThreadpoolCallbackCleanupGroup(&g_listEnv, g_listCleanup, nullptr);
     }
 }
 
@@ -41,6 +55,16 @@ void JobsShutdown() {
         DestroyThreadpoolEnvironment(&g_env);
         CloseThreadpool(g_pool);
         g_pool = nullptr;
+    }
+    if (g_listCleanup) {
+        CloseThreadpoolCleanupGroupMembers(g_listCleanup, TRUE, nullptr);
+        CloseThreadpoolCleanupGroup(g_listCleanup);
+        g_listCleanup = nullptr;
+    }
+    if (g_listPool) {
+        DestroyThreadpoolEnvironment(&g_listEnv);
+        CloseThreadpool(g_listPool);
+        g_listPool = nullptr;
     }
 }
 
@@ -66,6 +90,13 @@ void JobSubmit(std::function<void()> work) {
     if (!g_pool || !TrySubmitThreadpoolCallback(WorkCallback, fn, &g_env)) {
         WorkCallback(nullptr, fn); // run inline as fallback
     }
+}
+
+void JobSubmitListing(std::function<void()> work) {
+    if (!g_listPool) { JobSubmit(std::move(work)); return; }
+    g_pending++;
+    auto *fn = new std::function<void()>(std::move(work));
+    if (!TrySubmitThreadpoolCallback(WorkCallback, fn, &g_listEnv)) WorkCallback(nullptr, fn);
 }
 
 void MainPost(std::function<void()> fn) {

@@ -68,6 +68,7 @@ public:
     std::shared_ptr<FolderStats> Get(const std::wstring &path, bool start); // returns cached/started stats
     void Invalidate(const std::wstring &path);
     void CancelAll();
+    void CancelUnless(const std::function<bool(const std::wstring &)> &keep); // stops running ones keep() rejects
     bool AnyRunning();
 private:
     std::unordered_map<std::wstring, std::shared_ptr<FolderStats>> cache;

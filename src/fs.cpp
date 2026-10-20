@@ -417,6 +417,16 @@ void FolderSizeCalc::CancelAll() {
     cache.clear();
 }
 
+void FolderSizeCalc::CancelUnless(const std::function<bool(const std::wstring &)> &keep) {
+    // finished results stay cached; unfinished ones are dropped so they restart if shown again
+    for (auto it = cache.begin(); it != cache.end();) {
+        if (!it->second->done.load() && !keep(it->first)) {
+            it->second->cancel = true;
+            it = cache.erase(it);
+        } else ++it;
+    }
+}
+
 bool FolderSizeCalc::AnyRunning() {
     for (auto &kv : cache)
         if (!kv.second->done.load()) return true;
