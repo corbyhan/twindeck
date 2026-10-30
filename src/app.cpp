@@ -629,8 +629,8 @@ void App::CloseTab(Panel *p, int index) {
     if (closedTabs.size() > 20) closedTabs.erase(closedTabs.begin());
     if (p->tabs.size() == 1) {
         if (FindNode(p) && FindNode(p)->parent) { ClosePanel(p); return; }
-        // last tab of last panel: keep one tab at home
-        Navigate(t, HomePath());
+        // last tab of last panel: closing it closes the window, like a browser
+        PostMessageW(hwnd, WM_CLOSE, 0, 0);
         return;
     }
     p->tabs.erase(p->tabs.begin() + index);
