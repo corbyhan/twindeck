@@ -8,6 +8,7 @@ struct InstallOptions {
     bool setDefault = false;     // folders, drives and Win+E open in TwinDeck instead of File Explorer
     bool contextMenu = true;     // "Open in TwinDeck" / "TwinDeck here" in the right-click menus
     bool addToPath = true;       // install folder on the user PATH (run "twindeck" from a terminal)
+    bool winEHotkey = false;     // a keyboard hook (TwinDeckOpen.exe --winkey, from sign-in) opens TwinDeck for Win+E
 };
 
 struct InstallInfo {

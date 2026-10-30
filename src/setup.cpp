@@ -149,7 +149,7 @@ void App::DrawSetup(RectF rc) {
     r.Text(FONT_UI_BOLD, TL(L"Options", L"옵션"), RectF(right.x, y, right.w, lh), theme.text);
     y += lh + 8 * S;
     struct Opt { const wchar_t *en, *ko, *descEn, *descKo; bool *v; };
-    Opt opts[4] = {
+    Opt opts[5] = {
         {L"Right-click entries", L"우클릭 메뉴", L"\"Open in TwinDeck\" in Explorer's folder menus",
          L"탐색기 폴더 메뉴에 'TwinDeck에서 열기' 추가", &setup.opts.contextMenu},
         {L"Add to PATH", L"PATH에 추가", L"Run \"twindeck\" from any terminal", L"터미널에서 twindeck으로 실행", &setup.opts.addToPath},
@@ -157,12 +157,15 @@ void App::DrawSetup(RectF rc) {
          L"바탕 화면에 아이콘 (시작 메뉴는 항상 추가)", &setup.opts.desktopShortcut},
         {L"Default file manager", L"기본 파일 관리자", L"Folders, drives and Win+E open in TwinDeck",
          L"폴더·드라이브 열기와 Win+E를 TwinDeck으로", &setup.opts.setDefault},
+        {L"Win+E hotkey", L"Win+E 단축키", L"Catch Win+E itself, for Windows that ignores the above",
+         L"위 설정이 안 먹는 Windows에서 Win+E를 직접 받기", &setup.opts.winEHotkey},
     };
+    const int optCount = (int)std::size(opts);
     f32 cardRowH = std::floor(lh + sh + 22 * S);
-    RectF card(right.x, y, right.w, cardRowH * 4);
+    RectF card(right.x, y, right.w, cardRowH * optCount);
     r.FillRect(card, theme.inputBg, 8 * S);
     r.StrokeRect(card, theme.border, std::max(1.f, S), 8 * S);
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < optCount; i++) {
         RectF row(card.x, card.y + i * cardRowH, card.w, cardRowH);
         if (i) r.Line(row.x + 14 * S, row.y + 0.5f, row.Right() - 14 * S, row.y + 0.5f, theme.border);
         bool v = *opts[i].v;

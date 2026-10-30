@@ -7,9 +7,13 @@
 static const wchar_t *kUninstallKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\TwinDeck";
 static const wchar_t *kVerb = L"OpenInTwinDeck";
 static const wchar_t *kHereVerb = L"TwinDeckHere";
-// "This PC" — Win+E and the Explorer taskbar button open it through this verb
+// "This PC" — Win+E and the Explorer taskbar button open it through this verb (newer Windows 11 builds skip it for
+// Win+E; the Win+E hotkey option covers those)
 static const wchar_t *kThisPcNewWindow =
     L"Software\\Classes\\CLSID\\{52205fd8-5dfb-447d-801a-d0b52f2e83e1}\\shell\\opennewwindow";
+// Win+E hotkey: TwinDeckOpen.exe --winkey runs from sign-in
+static const wchar_t *kRunKey = L"Software\\Microsoft\\Windows\\CurrentVersion\\Run";
+static const wchar_t *kRunValue = L"TwinDeckWinKey";
 
 std::wstring SelfPath() {
     wchar_t buf[MAX_PATH * 2];
@@ -186,12 +190,38 @@ InstallInfo QueryInstall() {
     info.opts.setDefault = GetDword(HKEY_CURRENT_USER, kUninstallKey, L"OptDefaultFileManager", 0) != 0;
     info.opts.contextMenu = GetDword(HKEY_CURRENT_USER, kUninstallKey, L"OptContextMenu", 1) != 0;
     info.opts.addToPath = GetDword(HKEY_CURRENT_USER, kUninstallKey, L"OptAddToPath", 0) != 0;
+    info.opts.winEHotkey = GetDword(HKEY_CURRENT_USER, kUninstallKey, L"OptWinEHotkey", 0) != 0;
     return info;
 }
 
 bool IsRunningInstalledCopy() {
     InstallInfo info = QueryInstall();
     return info.installed && _wcsicmp(SelfPath().c_str(), InstalledExe(info.opts.dir).c_str()) == 0;
+}
+
+// ------------------------------------------------------------------ Win+E hotkey process
+// stops the running TwinDeckOpen.exe --winkey (from any install folder) so its file can be replaced or removed
+static void StopWinKey() {
+    HWND w = FindWindowExW(HWND_MESSAGE, nullptr, L"TwinDeckWinKey", nullptr);
+    if (!w) return;
+    DWORD pid = 0;
+    GetWindowThreadProcessId(w, &pid);
+    HANDLE p = OpenProcess(SYNCHRONIZE, FALSE, pid);
+    PostMessageW(w, WM_CLOSE, 0, 0);
+    if (p) {
+        WaitForSingleObject(p, 2000);
+        CloseHandle(p);
+    }
+}
+
+static void StartWinKey(const std::wstring &opener) {
+    std::wstring cmd = L"\"" + opener + L"\" --winkey";
+    STARTUPINFOW si = {sizeof(si)};
+    PROCESS_INFORMATION pi = {};
+    if (CreateProcessW(opener.c_str(), &cmd[0], nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) {
+        CloseHandle(pi.hThread);
+        CloseHandle(pi.hProcess);
+    }
 }
 
 // ------------------------------------------------------------------ integration on / off
@@ -211,8 +241,11 @@ static void ApplyIntegration(const InstallOptions &o, const std::wstring &exe) {
     // double-clicks inside File Explorer back to it; its blank icon keeps our app icon off the Windows 11 menu's Open.
     std::wstring opener = InstalledOpener(PathParent(exe));
     std::wstring openVerbCmd = L"\"" + exe + L"\" --open \"%V\""; // same behavior, only with our icon in the menu
-    if (o.setDefault && WriteOpener(opener)) openVerbCmd = L"\"" + opener + L"\" \"%V\"";
-    else if (!o.setDefault) DeleteFileW(opener.c_str());
+    StopWinKey(); // it runs from the opener file
+    bool needOpener = o.setDefault || o.winEHotkey;
+    bool haveOpener = needOpener && WriteOpener(opener);
+    if (!needOpener) DeleteFileW(opener.c_str());
+    if (o.setDefault && haveOpener) openVerbCmd = L"\"" + opener + L"\" \"%V\"";
     for (const wchar_t *cls : {L"Directory", L"Drive"}) {
         std::wstring shellKey = std::wstring(L"Software\\Classes\\") + cls + L"\\shell";
         std::wstring openKey = shellKey + L"\\open";
@@ -243,6 +276,12 @@ static void ApplyIntegration(const InstallOptions &o, const std::wstring &exe) {
         DeleteKeyIfEmpty(shellKey);
         DeleteKeyIfEmpty(PathParent(shellKey));
     }
+    if (o.winEHotkey && haveOpener) {
+        SetStr(HKEY_CURRENT_USER, kRunKey, kRunValue, L"\"" + opener + L"\" --winkey");
+        StartWinKey(opener);
+    } else {
+        DeleteValue(HKEY_CURRENT_USER, kRunKey, kRunValue);
+    }
 
     if (o.desktopShortcut) CreateShortcut(DesktopLink(), exe);
     else DeleteFileW(DesktopLink().c_str());
@@ -262,6 +301,7 @@ static bool CopyExe(const std::wstring &self, const std::wstring &exe, std::wstr
 }
 
 static void RemoveProgramFiles(const std::wstring &dir) {
+    StopWinKey();
     std::wstring exe = InstalledExe(dir);
     if (_wcsicmp(SelfPath().c_str(), exe.c_str()) != 0) DeleteFileW(exe.c_str());
     DeleteFileW((exe + L".old").c_str());
@@ -314,8 +354,9 @@ bool PerformInstall(const InstallOptions &in, std::wstring *err) {
     SetDword(HKEY_CURRENT_USER, kUninstallKey, L"OptDefaultFileManager", o.setDefault);
     SetDword(HKEY_CURRENT_USER, kUninstallKey, L"OptContextMenu", o.contextMenu);
     SetDword(HKEY_CURRENT_USER, kUninstallKey, L"OptAddToPath", o.addToPath);
-    Log(L"Installed to %s (desktop %d, default %d, menu %d, path %d)", o.dir.c_str(), o.desktopShortcut, o.setDefault,
-        o.contextMenu, o.addToPath);
+    SetDword(HKEY_CURRENT_USER, kUninstallKey, L"OptWinEHotkey", o.winEHotkey);
+    Log(L"Installed to %s (desktop %d, default %d, menu %d, path %d, Win+E %d)", o.dir.c_str(), o.desktopShortcut,
+        o.setDefault, o.contextMenu, o.addToPath, o.winEHotkey);
     return true;
 }
 
@@ -323,7 +364,7 @@ bool PerformInstall(const InstallOptions &in, std::wstring *err) {
 bool PerformUninstall(bool *selfWasInstalled) {
     InstallInfo info = QueryInstall();
     InstallOptions none;
-    none.contextMenu = none.setDefault = none.desktopShortcut = none.addToPath = false;
+    none.contextMenu = none.setDefault = none.desktopShortcut = none.addToPath = none.winEHotkey = false;
     std::wstring exe = InstalledExe(info.opts.dir);
     ApplyIntegration(none, exe);
     UpdateUserPath(info.opts.dir, false);

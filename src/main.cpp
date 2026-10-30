@@ -317,7 +317,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR, int) {
     for (int i = 1; i < argc; i++) {
         std::wstring arg = argv[i];
         if (arg == L"--install") {
-            // unattended install: --install [--dir=PATH] [--desktop] [--default] [--no-menu] [--no-path] [--quiet]
+            // unattended install: --install [--dir=PATH] [--desktop] [--default] [--win-e] [--no-menu] [--no-path] [--quiet]
             I18nSetLanguage(I18nDetectSystemLanguage());
             InstallOptions o = QueryInstall().opts;
             for (int j = 1; j < argc; j++) {
@@ -325,6 +325,7 @@ int WINAPI wWinMain(HINSTANCE inst, HINSTANCE, LPWSTR, int) {
                 if (a.rfind(L"--dir=", 0) == 0) o.dir = a.substr(6);
                 else if (a == L"--desktop") o.desktopShortcut = true;
                 else if (a == L"--default") o.setDefault = true;
+                else if (a == L"--win-e") o.winEHotkey = true;
                 else if (a == L"--no-menu") o.contextMenu = false;
                 else if (a == L"--no-path") o.addToPath = false;
             }

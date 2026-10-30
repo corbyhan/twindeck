@@ -72,7 +72,7 @@
 
 ### 간단한 설치
 
-설치 파일을 실행해 위치와 옵션(우클릭 메뉴, PATH, 바탕 화면 바로 가기, 기본 파일 관리자)을 고르면 끝입니다. 현재 사용자에게만 설치되고, 제거하면 바꾼 설정을 모두 되돌립니다.
+설치 파일을 실행해 위치와 옵션(우클릭 메뉴, PATH, 바탕 화면 바로 가기, 기본 파일 관리자, Win+E 단축키)을 고르면 끝입니다. 현재 사용자에게만 설치되고, 제거하면 바꾼 설정을 모두 되돌립니다.
 
 </td>
 <td width="55%"><img src="docs/images/setup.png" alt="설치 화면" width="100%" /></td>
@@ -99,11 +99,12 @@
 | PATH에 추가 | 터미널에서 `twindeck`으로 실행 |
 | 바탕 화면 바로 가기 | 바탕 화면에 아이콘 생성 (시작 메뉴 바로 가기는 항상 생성) |
 | 기본 파일 관리자 | 폴더·드라이브 열기와 `Win+E`를 TwinDeck으로 연결 |
+| Win+E 단축키 | 일부 Windows 11 업데이트 이후 `Win+E`가 위 설정을 무시하고 탐색기를 엽니다. 이 옵션을 켜면 로그인 때 작은 프로그램(`TwinDeckOpen.exe --winkey`)이 실행되어 `Win+E`를 직접 받아 TwinDeck을 엽니다. 관리자 권한 창이 앞에 있을 때는 받지 못합니다 |
 
 - 설치 후에는 옵션 → 시스템 → "설치 설정…" 또는 Windows 설정 → 앱 → TwinDeck → 수정에서 다시 바꿀 수 있습니다.
 - 제거하면 위 항목을 모두 되돌리고 설정과 즐겨찾기(`%LOCALAPPDATA%\TwinDeck`)는 남겨 둡니다.
 - **포터블**: [TwinDeck-portable.zip](https://github.com/corbyhan/twindeck/releases/latest/download/TwinDeck-portable.zip)을 풀어 실행하면 설정을 같은 폴더에 저장하고 시스템은 건드리지 않습니다.
-- **무인 설치**: `TwinDeck-Setup.exe --install [--dir=경로] [--desktop] [--default] [--no-menu] [--no-path] [--quiet]`, 제거: `TwinDeck.exe --uninstall [--quiet]`
+- **무인 설치**: `TwinDeck-Setup.exe --install [--dir=경로] [--desktop] [--default] [--win-e] [--no-menu] [--no-path] [--quiet]`, 제거: `TwinDeck.exe --uninstall [--quiet]`
 
 ## 주요 단축키
 | 키 | 동작 |
